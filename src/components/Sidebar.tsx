@@ -47,7 +47,8 @@ export const evaluationFields: EvaluationField[] = [
       "Tidak Sesuai",
       "BAPP Tidak Jelas",
       "Surat Tugas Tidak Ada",
-      "Diedit",
+      "Diedit", 
+      "Tanggal Tidak Ada"
     ],
   },
   {
@@ -59,7 +60,7 @@ export const evaluationFields: EvaluationField[] = [
       "Tidak Terdaftar di Datadik",
       "PIC Tidak Sama",
       "TTD Tidak Ada",
-      "NIP Tidak Ada",
+      "NIP Tidak Ada"
     ],
   },
   {
@@ -76,6 +77,7 @@ export const evaluationFields: EvaluationField[] = [
       "Tidak Sesuai",
       "BAPP Tidak Jelas",
       "Diedit",
+      "Tanggal Tidak Ada"
     ],
   },
   { col: "V", label: "PESERTA PELATIHAN", options: ["Ada", "Tidak Ada"] },
