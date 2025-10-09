@@ -254,13 +254,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const data: DkmData = await response.json();
 
-        // === LOGIKA AUTO-SKIP DIMASUKKAN DI SINI ===
-        if (!data.hisense.isGreen) {
-          console.log(`Auto-skipping NPSN: ${npsn} karena warna bukan hijau.`);
-          handleSkip(false);
-          setIsFetchingDetails(false);
-          return;
-        }
+        // === LOGIKA AUTO-SKIP DIMATIKAN SEMENTARA ===
+        // if (!data.hisense.isGreen) {
+        //   console.log(`Auto-skipping NPSN: ${npsn} karena warna bukan hijau.`);
+        //   handleSkip(false);
+        //   setIsFetchingDetails(false);
+        //   return;
+        // }
 
         setDkmData(data);
         setEvaluationForm(defaultEvaluationValues);
@@ -299,10 +299,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const headerRow = allData[2].rowData as string[];
         const verifikatorCol = headerRow.indexOf("VERIFIKATOR");
         const statusCol = headerRow.indexOf("STATUS (DITERIMA/DITOLAK)");
+        const npsnCol = headerRow.indexOf("NPSN");
 
-        if (verifikatorCol === -1 || statusCol === -1) {
+        if (verifikatorCol === -1 || statusCol === -1 || npsnCol === -1) {
           throw new Error(
-            "Kolom VERIFIKATOR atau STATUS tidak ditemukan di Sheet."
+            "Kolom VERIFIKATOR, STATUS, atau NPSN tidak ditemukan di Sheet."
           );
         }
 
@@ -315,10 +316,77 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 String(item.rowData[statusCol]).trim() === "")
           );
 
-        const rowsWithHeader = filtered.map((row: SheetRow) => ({
+        const hitamRows: SheetRow[] = [];
+        const greenRows: SheetRow[] = [];
+        
+        const cookie = localStorage.getItem("hisense_cookie");
+        if (!cookie) {
+            throw new Error("Cookie Hisense tidak ditemukan. Silakan login kembali.");
+        }
+        const validName = await validateHisenseCookie(cookie);
+        if (!validName) {
+            setCookieValid(false);
+            setVerifierName(null);
+            setShowLoginModal(true);
+            throw new Error("Cookie Hisense kadaluarsa atau tidak valid.");
+        }
+
+        for (const row of filtered) {
+            const npsn = row.rowData[npsnCol];
+            if (!npsn) {
+                greenRows.push(row);
+                continue;
+            }
+        
+            try {
+                const response = await fetch("/api/combined", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ q: npsn, cookie }),
+                });
+        
+                if (!response.ok) {
+                    console.warn(`Gagal pre-check status untuk NPSN ${npsn}, akan diproses reguler.`);
+                    greenRows.push(row);
+                    continue;
+                }
+        
+                const dkm: DkmData = await response.json();
+                if (dkm.hisense && !dkm.hisense.isGreen) {
+                    // Langsung proses skip HITAM di Sheets
+                    try {
+                        await fetch("/api/sheets/batch-update", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                action: "formatSkipHitam",
+                                sheetId: process.env.NEXT_PUBLIC_SHEET_ID,
+                                rowIndex: row.rowIndex,
+                            }),
+                        });
+                        // Tidak perlu masuk ke hitamRows, lanjut ke baris berikutnya
+                    } catch (err) {
+                        console.error("Gagal format skip HITAM:", err);
+                        // Jika gagal update, tetap masukkan ke greenRows agar tidak hilang
+                        greenRows.push(row);
+                    }
+                    continue;
+                } else {
+                    greenRows.push(row);
+                }
+            } catch (e) {
+                console.error(`Error saat pre-check NPSN ${npsn}, akan diproses reguler:`, e);
+                greenRows.push(row);
+            }
+        }
+
+        const sortedRows = [...hitamRows, ...greenRows];
+
+        const rowsWithHeader = sortedRows.map((row: SheetRow) => ({
           ...row,
           headerRow,
         }));
+
         setAllPendingRows(rowsWithHeader);
         setCurrentRowIndex(0);
       } catch (err: unknown) {
@@ -368,7 +436,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "BAPP Tidak Jelas": "(1M) BAPP Halaman 1 tidak terlihat jelas",
         "Surat Tugas Tidak Ada": "(1V) Nomor surat tugas pada halaman 1 tidak ada",
         "Diedit": "(1Y) BAPP Hal 1 tidak boleh diedit digital",
-        "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
       },
       S: {
         "Tidak Terdaftar di Datadik":
@@ -378,7 +445,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "TTD Tidak Ada":
           "(1X) Tidak ada tanda tangan dari pihak sekolah",
         "NIP Tidak Ada":
-          "(1AA) NIP penandatangan pihak sekolah tidak ada",
+          "(1AA) NIP penandatangan pihak sekolah tidak ada (jika tidak ada bisa isi strip)",
       },
       T: {
         "Tidak Ada": "(1B) Tidak ada stempel sekolah pada BAPP",
@@ -388,7 +455,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "Tidak Sesuai": "(1Q) Ceklis BAPP tidak sesuai pada halaman 2",
         "BAPP Tidak Jelas": "(1T) BAPP Halaman 2 tidak terlihat jelas",
         "Diedit": "(1Z) BAPP Hal 2 tidak boleh diedit digital",
-        "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
       },
     };
 
