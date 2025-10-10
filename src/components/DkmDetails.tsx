@@ -99,7 +99,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (currentImageIndex === null) return;
 
-      // CUEKIN shortcut jika sedang fokus di input (misal search PTK)
+      // Abaikan input aktif
       const active = document.activeElement;
       if (
         active &&
@@ -107,21 +107,61 @@ export default function DkmDetails({ data }: { data: DkmData }) {
           active.tagName === "TEXTAREA" ||
           active.getAttribute("contenteditable") === "true")
       ) {
-        // Kecuali tombol Escape, tetap boleh close gambar
         if (event.key === "Escape") setCurrentImageIndex(null);
         return;
       }
 
+      // Escape → tutup gambar
       if (event.key === "Escape") setCurrentImageIndex(null);
+
+      // Next
       if (event.key === "ArrowRight" || event.key === "d" || event.key === "D")
         setCurrentImageIndex((prev) => (prev! + 1) % imageList.length);
+
+      // Prev
       if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A")
         setCurrentImageIndex(
           (prev) => (prev! - 1 + imageList.length) % imageList.length
         );
     };
+
+    const handleMouseDown = (event: MouseEvent) => {
+      if (currentImageIndex === null) return;
+
+      // Tombol samping mouse
+      if (event.button === 3 || event.button === 4) {
+        // 🔒 Cegah browser navigasi back/forward
+        event.preventDefault();
+      }
+
+      if (event.button === 4) {
+        // Forward → next
+        setCurrentImageIndex((prev) => (prev! + 1) % imageList.length);
+      }
+      if (event.button === 3) {
+        // Back → previous
+        setCurrentImageIndex(
+          (prev) => (prev! - 1 + imageList.length) % imageList.length
+        );
+      }
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    const handleMouseUp = (event: MouseEvent) => {
+      if (currentImageIndex === null) return;
+      if (event.button === 3 || event.button === 4) {
+        event.preventDefault();
+      }
+    };
+
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
   }, [currentImageIndex, imageList.length]);
 
   return (
