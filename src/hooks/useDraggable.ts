@@ -49,6 +49,7 @@ export function useDraggable<T extends HTMLElement>(elRef: React.RefObject<T>, i
   }, [onMouseMove]);
 
   const onMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
     if (!elRef.current) return;
     isDraggingRef.current = true;
     const nativeEvent = e.nativeEvent;
