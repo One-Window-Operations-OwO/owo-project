@@ -1,7 +1,7 @@
 export async function validateHisenseCookie(cookie: string): Promise<string | null> {
   try {
     // 1. Validate the current cookie
-    const validationRes = await fetch("https://owo-api-production.up.railway.app/hisense/validate-cookie", {
+    const validationRes = await fetch("api/validate-cookie", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cookie }),
@@ -23,7 +23,7 @@ export async function validateHisenseCookie(cookie: string): Promise<string | nu
       return null; // No credentials to re-login
     }
 
-    const loginRes = await fetch("https://owo-api-production.up.railway.app/hisense/login", {
+    const loginRes = await fetch("api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -35,7 +35,7 @@ export async function validateHisenseCookie(cookie: string): Promise<string | nu
       localStorage.setItem("hisense_cookie", loginData.phpsessid);
 
       // 3. Validate the new cookie to get the name
-      const newValidationRes = await fetch("https://owo-api-production.up.railway.app/hisense/validate-cookie", {
+      const newValidationRes = await fetch("api/validate-cookie", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cookie: loginData.phpsessid }),
