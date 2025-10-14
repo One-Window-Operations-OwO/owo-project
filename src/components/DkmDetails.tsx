@@ -42,6 +42,8 @@ export default function DkmDetails({ data }: { data: DkmData }) {
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(
     null
   );
+  // State baru untuk rotasi gambar
+  const [imageRotation, setImageRotation] = useState(0);
 
   const prosesRef = useRef<HTMLDivElement>(null);
 
@@ -93,7 +95,13 @@ export default function DkmDetails({ data }: { data: DkmData }) {
       schoolInfo.PIC,
       datadik.kepalaSekolah
     );
+    setMismatches(newMismatches); // Update state mismatches
   }, [schoolInfo, datadik]);
+
+  // Reset rotasi saat gambar berubah
+  useEffect(() => {
+    setImageRotation(0);
+  }, [currentImageIndex]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -163,6 +171,14 @@ export default function DkmDetails({ data }: { data: DkmData }) {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [currentImageIndex, imageList.length]);
+
+  const rotateImage = (direction: "left" | "right") => {
+    if (direction === "right") {
+      setImageRotation((prev) => (prev + 90) % 360);
+    } else {
+      setImageRotation((prev) => (prev - 90 + 360) % 360);
+    }
+  };
 
   return (
     <>
@@ -407,10 +423,35 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                   </button>
                   <button
                     title="Reset Zoom"
-                    onClick={() => resetTransform()}
+                    onClick={() => {
+                      resetTransform();
+                      setImageRotation(0);
+                    }}
                     className="bg-white text-black px-4 h-10 rounded-full font-semibold shadow-lg"
                   >
                     Reset
+                  </button>
+
+                  <button
+                    title="Putar Kiri"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      rotateImage("left");
+                    }}
+                    className="bg-white text-black px-4 h-10 rounded-full font-semibold shadow-lg"
+                  >
+                    &#x21BA;
+                  </button>
+
+                  <button
+                    title="Putar Kanan"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      rotateImage("right");
+                    }}
+                    className="bg-white text-black px-4 h-10 rounded-full font-semibold shadow-lg"
+                  >
+                    &#x21BB;
                   </button>
                 </div>
                 <div
@@ -421,11 +462,11 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                     wrapperStyle={{ maxWidth: "100%", maxHeight: "100%" }}
                     contentStyle={{ width: "100%", height: "100%" }}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={imageList[currentImageIndex] as string}
                       alt="Tampilan Penuh"
                       className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
+                      style={{ transform: `rotate(${imageRotation}deg)` }} // Apply rotation
                     />
                   </TransformComponent>
                 </div>
