@@ -131,6 +131,16 @@ export default function DkmDetails({ data }: { data: DkmData }) {
         setCurrentImageIndex(
           (prev) => (prev! - 1 + imageList.length) % imageList.length
         );
+
+      // Putar Kiri
+      if (event.key === "q" || event.key === "Q") {
+        rotateImage("left");
+      }
+
+      // Putar Kanan
+      if (event.key === "e" || event.key === "E") {
+        rotateImage("right");
+      }
     };
 
     const handleMouseDown = (event: MouseEvent) => {
