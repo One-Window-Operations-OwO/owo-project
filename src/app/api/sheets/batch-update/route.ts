@@ -81,7 +81,7 @@ export async function POST(req: Request) {
         {
           repeatCell: {
             range: {
-              sheetId: 966309158,
+              sheetId: 340924294,
               startRowIndex: rowIndex - 1,
               endRowIndex: rowIndex,
               startColumnIndex: 9,
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
         {
           updateCells: {
             range: {
-              sheetId: 966309158,
+              sheetId: 340924294,
               startRowIndex: rowIndex - 1,
               endRowIndex: rowIndex,
               startColumnIndex: 23,
