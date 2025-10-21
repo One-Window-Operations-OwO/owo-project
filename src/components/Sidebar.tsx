@@ -80,7 +80,7 @@ export const evaluationFields: EvaluationField[] = [
       "Tanggal Tidak Ada"
     ],
   },
-  { col: "V", label: "PESERTA PELATIHAN", options: ["Ada", "Tidak Ada"] },
+  { col: "V", label: "PESERTA PELATIHAN", options: ["Ada", "Tidak Ada", "Media Pelatihan"] },
   { col: "W", label: "KESIMPULAN LENGKAP", options: ["Ya", "Tidak"] },
 ];
 

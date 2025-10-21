@@ -390,6 +390,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "Diedit": "(1Z) BAPP Hal 2 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
       },
+      V: {
+        "Media Pelatihan": "(1AC) Harap ceklis di luar jaringan pada media pelatihan (jangan double ceklis/tidak ceklis)",
+      },
     };
 
     const reasons = Object.entries(evaluationForm)

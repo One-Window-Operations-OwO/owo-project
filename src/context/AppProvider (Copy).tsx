@@ -456,6 +456,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "BAPP Tidak Jelas": "(1T) BAPP Halaman 2 tidak terlihat jelas",
         "Diedit": "(1Z) BAPP Hal 2 tidak boleh diedit digital",
       },
+      V: {
+        "Media Pelatihan": "(1AC) Harap ceklis di luar jaringan pada media pelatihan (jangan double ceklis/tidak ceklis)",
+      },
     };
 
     const reasons = Object.entries(evaluationForm)
