@@ -13,8 +13,16 @@ export default function StickyEvaluationBox({
     boxRef,
     "sticky-evaluation-box"
   );
-  const { pendingCount, isSubmitting, evaluationForm, setEvaluationForm } =
-    useAppContext();
+  const {
+    pendingCount,
+    isSubmitting,
+    evaluationForm,
+    setEvaluationForm,
+    correctSerialNumber,
+    setCorrectSerialNumber,
+    installationDate,
+    setInstallationDate,
+  } = useAppContext();
 
   const handleFormChange = (col: string, value: string) => {
     setEvaluationForm((prev) => ({ ...prev, [col]: value }));
@@ -69,7 +77,11 @@ export default function StickyEvaluationBox({
     }
   })();
 
-  if (filteredFields.length === 0) return null;
+  const showCorrectSerialNumberInput =
+    (currentImageIndex === 4 || currentImageIndex === 6) &&
+    evaluationForm["N"] === "Tidak Sesuai";
+
+  if (filteredFields.length === 0 && !showCorrectSerialNumberInput) return null;
 
   return (
     <div
@@ -107,6 +119,18 @@ export default function StickyEvaluationBox({
       {/* Content */}
       <div className="p-4 max-h-[400px] overflow-y-auto">
         <div className="flex flex-col gap-6">
+          <div className="text-left text-sm border-b border-slate-600 pb-4">
+            <label className="font-semibold text-slate-200 mb-2 block text-base">
+              Tanggal Instalasi Selesai
+            </label>
+            <input
+              type="date"
+              value={installationDate}
+              onChange={(e) => setInstallationDate(e.target.value)}
+              disabled={buttonsDisabled}
+              className="w-full p-2 rounded-md bg-slate-700 border border-slate-600 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
           {filteredFields.map((field) => (
             <div
               key={field.col}
@@ -129,6 +153,20 @@ export default function StickyEvaluationBox({
               </div>
             </div>
           ))}
+          {showCorrectSerialNumberInput && (
+            <div className="text-left text-sm border-b border-slate-600 pb-4">
+              <label className="font-semibold text-slate-200 mb-2 block text-base">
+                Serial Number yang Benar
+              </label>
+              <input
+                type="text"
+                value={correctSerialNumber}
+                onChange={(e) => setCorrectSerialNumber(e.target.value)}
+                disabled={buttonsDisabled}
+                className="w-full p-2 rounded-md bg-slate-700 border border-slate-600 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

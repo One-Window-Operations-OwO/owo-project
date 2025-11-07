@@ -77,7 +77,8 @@ export const evaluationFields: EvaluationField[] = [
       "Tidak Sesuai",
       "BAPP Tidak Jelas",
       "Diedit",
-      "Tanggal Tidak Ada"
+      "Tanggal Tidak Ada",
+      "Tanggal Tidak Konsisten"
     ],
   },
   { col: "V", label: "PESERTA PELATIHAN", options: ["Ada", "Tidak Ada", "Media Pelatihan"] },

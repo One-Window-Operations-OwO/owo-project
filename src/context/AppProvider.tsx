@@ -141,6 +141,10 @@ interface AppContextType {
   handleSkip: (isValidData: boolean) => void;
   isSidebarOpen: boolean;
   toggleSidebar: () => void;
+  correctSerialNumber: string;
+  setCorrectSerialNumber: React.Dispatch<React.SetStateAction<string>>;
+  installationDate: string;
+  setInstallationDate: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -163,6 +167,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const [customReason, setCustomReason] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [correctSerialNumber, setCorrectSerialNumber] = useState("");
+  const [installationDate, setInstallationDate] = useState("");
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
@@ -185,6 +191,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.error("Gagal format baris skip terakhir:", error);
         }
         setAllPendingRows([]);
+        setCorrectSerialNumber("");
+        setInstallationDate("");
         return;
       }
 
@@ -206,10 +214,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const newRows = allPendingRows.filter(
           (_, index) => index !== currentRowIndex
         );
-        setAllPendingRows([...newRows, currentRow]); // Pindahkan ke akhir
+        setAllPendingRows([...newRows, currentRow]);
         if (currentRowIndex >= newRows.length && newRows.length > 0) {
           setCurrentRowIndex(0);
         }
+        setCorrectSerialNumber("");
+        setInstallationDate("");
       }
     },
     [allPendingRows, currentRowIndex]
@@ -264,6 +274,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         setDkmData(data);
         setEvaluationForm(defaultEvaluationValues);
+        setCorrectSerialNumber(data.hisense.schoolInfo?.["Serial Number"] || "");
+        const instalasiSelesai = data.hisense.processHistory?.find(
+          (h) => h.status === "INSTALASI SELESAI"
+        );
+        if (instalasiSelesai && instalasiSelesai.tanggal) {
+          const datePart = instalasiSelesai.tanggal.split(" ")[0];
+          setInstallationDate(datePart);
+        }
       } catch (err: unknown) {
         if (err instanceof Error) setError(err.message);
         else setError("An unknown error occurred in fetchDetailsForRow.");
@@ -351,7 +369,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       Q: "(1D) Ceklis BAPP tidak lengkap pada halaman 1",
       S: "(1K) Data penanda tangan pada halaman 1 dan halaman 2 BAPP tidak konsisten",
       T: "(1O) Stempel pada BAPP halaman 2 tidak sesuai dengan sekolahnya",
-      U: "(1Q) Ceklis pada BAPP halaman 2 tidak lengkap",
+      U: "(1Q) Ceklis BAPP tidak lengkap pada halaman 2",
       V: "(1S) Satuan Pendidikan yang Mengikuti Pelatihan, tidak ada dalam BAPP hal.2",
       W: "(1A) Simpulan BAPP pada hal 2 belum dipilih atau dicoret",
     };
@@ -389,6 +407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "BAPP Tidak Jelas": "(1T) BAPP Halaman 2 tidak terlihat jelas",
         "Diedit": "(1Z) BAPP Hal 2 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
+        "Tanggal Tidak Konsisten": "(1E) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
       },
       V: {
         "Media Pelatihan": "(1AC) Harap ceklis di luar jaringan pada media pelatihan (jangan double ceklis/tidak ceklis)",
@@ -491,6 +510,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         // Update Google Sheets
         const currentRow = allPendingRows[currentRowIndex];
+        const updates: Record<string, any> = { ...evaluationForm };
+
+        if (installationDate && !customReason.includes("Tanggal Tidak Konsisten")) {
+          const [year, month, day] = installationDate.split("-");
+          updates["Z"] = `${day}/${month}/${year}`;
+        }
+
+        if (
+          correctSerialNumber &&
+          correctSerialNumber !== dkmData.hisense.schoolInfo?.["Serial Number"]
+        ) {
+          updates["I"] = correctSerialNumber;
+        }
+
         const res = await fetch("/api/sheets/batch-update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -498,7 +531,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             action: "update",
             sheetId: process.env.NEXT_PUBLIC_SHEET_ID,
             rowIndex: currentRow.rowIndex,
-            updates: { ...evaluationForm },
+            updates,
             customReason:
               customReason && customReason != generateRejectionMessage()
                 ? customReason
@@ -519,6 +552,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (currentRowIndex >= newRows.length && newRows.length > 0) {
           setCurrentRowIndex(0);
         }
+        setCorrectSerialNumber("");
+        setInstallationDate("");
       } catch (err: unknown) {
         if (err instanceof Error) setError(err.message);
         else setError("An unknown error occurred in updateSheetAndProceed.");
@@ -526,7 +561,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsSubmitting(false);
       }
     },
-    [allPendingRows, currentRowIndex, dkmData, evaluationForm, customReason]
+    [
+      allPendingRows,
+      currentRowIndex,
+      dkmData,
+      evaluationForm,
+      customReason,
+      correctSerialNumber,
+      installationDate,
+    ]
   );
 
   const handleTerima = useCallback(
@@ -609,6 +652,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         toggleSidebar,
         customReason,
         setCustomReason,
+        correctSerialNumber,
+        setCorrectSerialNumber,
+        installationDate,
+        setInstallationDate,
       }}
     >
       <div className="flex h-screen bg-gray-200">
