@@ -9,6 +9,7 @@ export default function StickyEvaluationBox({
   currentImageIndex: number | null;
 }) {
   const boxRef = useRef<HTMLDivElement>(null!);
+  const scrollableContentRef = useRef<HTMLDivElement>(null!);
   const { position, handleMouseDown } = useDraggable<HTMLDivElement>(
     boxRef,
     "sticky-evaluation-box"
@@ -117,7 +118,10 @@ export default function StickyEvaluationBox({
       </div>
 
       {/* Content */}
-      <div className="p-4 max-h-[400px] overflow-y-auto">
+      <div
+        ref={scrollableContentRef}
+        className="p-4 max-h-[400px] overflow-y-auto"
+      >
         <div className="flex flex-col gap-6">
           <div className="text-left text-sm border-b border-slate-600 pb-4">
             <label className="font-semibold text-slate-200 mb-2 block text-base">
@@ -127,6 +131,26 @@ export default function StickyEvaluationBox({
               type="date"
               value={installationDate}
               onChange={(e) => setInstallationDate(e.target.value)}
+              onWheel={(e) => {
+                e.preventDefault();
+                const currentDate = new Date(installationDate);
+                if (e.deltaY < 0) {
+                  currentDate.setDate(currentDate.getDate() + 1);
+                } else {
+                  currentDate.setDate(currentDate.getDate() - 1);
+                }
+                setInstallationDate(currentDate.toISOString().split("T")[0]);
+              }}
+              onMouseEnter={() => {
+                if (scrollableContentRef.current) {
+                  scrollableContentRef.current.style.overflowY = "hidden";
+                }
+              }}
+              onMouseLeave={() => {
+                if (scrollableContentRef.current) {
+                  scrollableContentRef.current.style.overflowY = "auto";
+                }
+              }}
               disabled={buttonsDisabled}
               className="w-full p-2 rounded-md bg-slate-700 border border-slate-600 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
