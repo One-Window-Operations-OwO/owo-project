@@ -62,7 +62,7 @@ DATA YANG BENAR:
 TUGAS:
 1. Lakukan OCR seluruh teks dalam foto plang sekolah.
 2. Temukan nama sekolah, NPSN, dan alamat (NPSN & alamat opsional).
-3. Bandingkan dengan data yang benar.
+3. Bandingkan dengan data yang benar (perbedaan karena tambahan seperti UPT, singkatan, "PG", dan perbedaan minor lainnya jangan diperhitungkan, anggap sama saja).
 4. "similarity" = tingkat kemiripan nama sekolah (0-100).
 5. Typo kecil & singkatan (Jl vs Jalan) TIDAK dianggap berbeda.
 6. Tidak adanya NPSN atau alamat TIDAK membuat result failed.
@@ -111,10 +111,10 @@ TUGAS:
    Abaikan angka kecil di atas barcode.
 3. Bandingkan hasil OCR dengan serial number yang benar.
 4. Hanya beri FAILED jika:
+   - Foto tidak terlihat (buram/tidak fokus), JANGAN COBA MENEBAK, jika gambar tidak terbaca jelas sedikitpun, anggap tidak terlihat dan beri result "FOTO SERIAL NUMBER tidak terlihat".
    - foto bukan SN sama sekali (foto random), atau
    - serial number terlihat jelas tetapi berbeda jauh.
-5. Jika serial number tidak terlihat → result = "FOTO SERIAL NUMBER tidak terlihat".
-6. "message" = kesimpulan singkat.
+5. "message" = kesimpulan singkat.
 
 PENTING:
 - Jangan menambahkan komentar apa pun.
