@@ -61,14 +61,15 @@ DATA YANG BENAR:
 
 TUGAS:
 1. Lakukan OCR seluruh teks dalam foto plang sekolah.
-2. Temukan nama sekolah, NPSN, dan alamat (NPSN & alamat opsional).
-3. Bandingkan dengan data yang benar (perbedaan karena tambahan seperti UPT, singkatan, "PG", dan perbedaan minor lainnya jangan diperhitungkan, anggap 
-   sama saja).
+2. Temukan nama sekolah, NPSN (NIS DAN NSS BERBEDA DENGAN NPSN, jika kamu menemukan NIS dan NSS jangan dimasukan ke data npsn), dan alamat (NPSN & alamat opsional).
+3. Bandingkan dengan data yang benar (perbedaan karena tambahan seperti "UPT", "Negeri", singkatan, "PG", dan perbedaan minor lainnya jangan diperhitungkan, anggap 
+   sama saja), namun perbedaan NPSN walau 1 karakter pun dianggap berbeda.
 4. "similarity" = tingkat kemiripan nama sekolah (0-100).
 5. Typo kecil & singkatan (Jl vs Jalan) TIDAK dianggap berbeda.
 6. Tidak adanya NPSN atau alamat TIDAK membuat result failed.
-7. Hanya beri result "FOTO PAPAN NAMA tidak sesuai" jika foto benar-benar BUKAN plang sekolah tersebut.
-8. "message" = kesimpulan singkat.
+7. result harus berisi "ok" tanpa kapital jika gambar sesuai.
+8. Hanya beri result "FOTO PAPAN NAMA tidak sesuai" jika foto benar-benar BUKAN plang sekolah tersebut.
+9. "message" = kesimpulan singkat.
 
 PENTING:
 - Jangan menambahkan komentar apa pun.
@@ -116,6 +117,7 @@ TUGAS:
    - foto bukan SN sama sekali (foto random), atau
    - serial number terlihat tapi ada perbedaan (walau hanya 1 karakter pun).
 5. "message" = kesimpulan singkat.
+6. result harus berisi "ok" tanpa kapital jika gambar sesuai.
 
 PENTING:
 - Jangan menambahkan komentar apa pun.
