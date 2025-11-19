@@ -33,7 +33,7 @@ export interface Ptk {
   ptk_terdaftar_id?: string;
   ptk_id?: string;
   nama?: string;
-  jenis_kelamin?: 'L' | 'P';
+  jenis_kelamin?: "L" | "P";
   tanggal_lahir?: string;
   nik?: string;
   nuptk?: string | null;
@@ -45,7 +45,7 @@ export interface Ptk {
   nomor_surat_tugas?: string;
   tanggal_surat_tugas?: string;
   tmt_tugas?: string;
-  ptk_induk?: 'Ya' | 'Tidak';
+  ptk_induk?: "Ya" | "Tidak";
   last_update?: string;
 }
 
@@ -58,7 +58,7 @@ export interface DatadikData {
   provinsi?: string;
   kepalaSekolah?: string;
   ptk?: Ptk[];
-  error?: string; // untuk kasus error response
+  error?: string;
 }
 
 export interface HisenseSchoolInfo {
@@ -78,7 +78,6 @@ export interface HisenseSchoolInfo {
   "Resi Pengiriman"?: string;
   "Serial Number"?: string;
   Status?: string;
-  // tambahkan field lain jika ada
 }
 
 export interface HisenseProcessHistory {
@@ -188,7 +187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             }),
           });
         } catch (error) {
-          console.error("Gagal format baris skip terakhir:", error);
+          console.error(error);
         }
         setAllPendingRows([]);
         setCorrectSerialNumber("");
@@ -209,7 +208,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }),
         });
       } catch (error) {
-        console.error("Gagal format baris skip:", error);
+        console.error(error);
       } finally {
         const newRows = allPendingRows.filter(
           (_, index) => index !== currentRowIndex
@@ -225,7 +224,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [allPendingRows, currentRowIndex]
   );
 
-  // Fungsi fetchDetailsForRow yang sudah di-upgrade
   const fetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
       if (!row) return;
@@ -259,14 +257,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
 
         if (!response.ok) {
-          throw new Error(`Gagal mengambil data dari API eksternal. Status: ${response.status}`);
+          throw new Error(
+            `Gagal mengambil data dari API eksternal. Status: ${response.status}`
+          );
         }
 
         const data: DkmData = await response.json();
 
-        // === LOGIKA AUTO-SKIP DIMASUKKAN DI SINI ===
         if (!data.hisense.isGreen) {
-          console.log(`Auto-skipping NPSN: ${npsn} karena warna bukan hijau.`);
           handleSkip(false);
           setIsFetchingDetails(false);
           return;
@@ -274,7 +272,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         setDkmData(data);
         setEvaluationForm(defaultEvaluationValues);
-        setCorrectSerialNumber(data.hisense.schoolInfo?.["Serial Number"] || "");
+        setCorrectSerialNumber(
+          data.hisense.schoolInfo?.["Serial Number"] || ""
+        );
         const instalasiSelesai = data.hisense.processHistory?.find(
           (h) => h.status === "INSTALASI SELESAI"
         );
@@ -379,13 +379,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "Tidak Terlihat":
           "(3A) Foto serial number pada belakang unit IFP tidak jelas",
         "Tidak Ada": "(3C) Foto Serial Number pada belakang unit IFP tidak ada",
-        "Diedit": "(1AB) Foto serial number tidak boleh diedit digital",
+        Diedit: "(1AB) Foto serial number tidak boleh diedit digital",
       },
       Q: {
         "Tidak Sesuai": "(1D) Ceklis BAPP tidak sesuai pada halaman 1",
         "BAPP Tidak Jelas": "(1M) BAPP Halaman 1 tidak terlihat jelas",
-        "Surat Tugas Tidak Ada": "(1V) Nomor surat tugas pada halaman 1 tidak ada",
-        "Diedit": "(1Y) BAPP Hal 1 tidak boleh diedit digital",
+        "Surat Tugas Tidak Ada":
+          "(1V) Nomor surat tugas pada halaman 1 tidak ada",
+        Diedit: "(1Y) BAPP Hal 1 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
       },
       S: {
@@ -393,24 +394,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
           "(1C) Pihak sekolah yang menandatangani BAPP tidak terdaftar dalam data Dapodik",
         "PIC Tidak Sama":
           "(1U) PIC dari pihak sekolah berbeda dengan yang di BAPP",
-        "TTD Tidak Ada":
-          "(1X) Tidak ada tanda tangan dari pihak sekolah",
-        "NIP Tidak Ada":
-          "(1AA) NIP penandatangan pihak sekolah tidak ada",
+        "TTD Tidak Ada": "(1X) Tidak ada tanda tangan dari pihak sekolah",
+        "NIP Tidak Ada": "(1AA) NIP penandatangan pihak sekolah tidak ada",
       },
       T: {
         "Tidak Ada": "(1B) Tidak ada stempel sekolah pada BAPP",
-        "Tidak Sesuai Tempatnya": "(1W) Stempel tidak mengenai tanda tangan pihak sekolah",
+        "Tidak Sesuai Tempatnya":
+          "(1W) Stempel tidak mengenai tanda tangan pihak sekolah",
       },
       U: {
         "Tidak Sesuai": "(1Q) Ceklis BAPP tidak sesuai pada halaman 2",
         "BAPP Tidak Jelas": "(1T) BAPP Halaman 2 tidak terlihat jelas",
-        "Diedit": "(1Z) BAPP Hal 2 tidak boleh diedit digital",
+        Diedit: "(1Z) BAPP Hal 2 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
-        "Tanggal Tidak Konsisten": "(1E) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
+        "Tanggal Tidak Konsisten":
+          "(1E) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
       },
       V: {
-        "Media Pelatihan": "(1AC) Harap ceklis di luar jaringan pada media pelatihan (jangan double ceklis/tidak ceklis)",
+        "Media Pelatihan":
+          "(1AC) Harap ceklis di luar jaringan pada media pelatihan (jangan double ceklis/tidak ceklis)",
       },
     };
 
@@ -439,7 +441,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return reasons;
   }, [evaluationForm]);
 
-  // Setiap kali evaluationForm berubah, update customReason
   useEffect(() => {
     setCustomReason(generateRejectionMessage());
   }, [generateRejectionMessage]);
@@ -497,7 +498,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const hisenseQueryString = new URLSearchParams(params).toString();
         hisensePath += hisenseQueryString;
 
-        // Panggil API Hisense
         const hisenseRes = await fetch("/api/hisense", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -508,11 +508,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error(`Gagal update Hisense: ${await hisenseRes.text()}`);
         }
 
-        // Update Google Sheets
         const currentRow = allPendingRows[currentRowIndex];
-        const updates: Record<string, any> = { ...evaluationForm };
+        const updates: Record<string, string | number | undefined> = {
+          ...evaluationForm,
+        };
 
-        if (installationDate && !customReason.includes("Tanggal Tidak Konsisten")) {
+        if (
+          installationDate &&
+          !customReason.includes("Tanggal Tidak Konsisten")
+        ) {
           const [year, month, day] = installationDate.split("-");
           updates["Z"] = `${day}/${month}/${year}`;
         }
@@ -569,6 +573,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       customReason,
       correctSerialNumber,
       installationDate,
+      generateRejectionMessage,
     ]
   );
 
@@ -594,7 +599,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // If validation fails (which includes re-login attempt), show login modal.
     setShowLoginModal(true);
   }, []);
 
