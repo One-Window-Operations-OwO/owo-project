@@ -1,5 +1,23 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
+import { buildPromptBapp1, buildPromptPlang, buildPromptSerial, buildPromptBapp2 } from "@/lib/ai";
+
+async function generateWithRetry<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  delay: number = 1500
+): Promise<T> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn()
+    } catch (err: unknown) {
+      if (i === retries - 1) throw err
+      await new Promise(r => setTimeout(r, delay))
+    }
+  }
+  throw new Error("Retry failed")
+}
+
 
 export async function POST(req: Request) {
   type Payload = {
@@ -30,114 +48,55 @@ const {
   const imgRes = await fetch(imageUrl);
   const buffer = Buffer.from(await imgRes.arrayBuffer());
   const base64 = buffer.toString("base64");
+  
+  let prompt = "";
 
-const promptPlang = `
-JANGAN RESPOND DALAM BLOCK CODE (\\\`\\\`\\\`), JANGAN GUNAKAN MARKDOWN.
-Balas dalam TEXT BIASA tetapi ISINYA mengikuti FORMAT JSON berikut:
+  if (imageIndex === 0) {
+    prompt = buildPromptPlang({
+      expectedSchoolName,
+      expectedNPSN,
+      expectedAddress,
+    });
+  } else if (imageIndex === 4) {
+    prompt = buildPromptSerial({
+      expectedSerialNumber,
+    });
+  } else if (imageIndex === 6) {
+    prompt = buildPromptBapp1({
+      expectedSchoolName,
+      expectedNPSN,
+    });
+  } else if (imageIndex === 7) {
+    prompt = buildPromptBapp2({
+      expectedSchoolName,
+    });
+  } else {
+    return NextResponse.json(
+      { error: "Invalid imageIndex" },
+      { status: 400 }
+    );
+  }
 
-{
-  "code": "OK / failed",
-  "similarity": 0-100,
-  "detected": {
-    "school_name": "...",
-    "npsn": "...",
-    "address": "..."
-  },
-  "suspected_differences": [
-    {
-      "field": "school_name / npsn / address",
-      "expected": "...",
-      "detected": "..."
-    }
-  ],
-  "result": "ok / FOTO PAPAN NAMA tidak sesuai",
-  "message": "..."
-}
+  const result = await generateWithRetry(() => {
+  if (imageIndex === 7) {
+    return ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        { inlineData: { mimeType: "image/jpeg", data: base64 } },
+        { text: prompt },
+      ],
+    })
+  } else {
+    return ai.models.generateContent({
+      model: "gemini-2.5-flash-lite",
+      contents: [
+        { inlineData: { mimeType: "image/jpeg", data: base64 } },
+        { text: prompt },
+      ],
+    })
+  }
+})
 
-DATA YANG BENAR:
-- Nama: ${expectedSchoolName || "-"}
-- NPSN: ${expectedNPSN || "-"}
-- Alamat: ${expectedAddress || "-"}
-
-TUGAS:
-1. Lakukan OCR seluruh teks dalam foto plang sekolah.
-2. Temukan nama sekolah, NPSN (NIS DAN NSS BERBEDA DENGAN NPSN, jika kamu menemukan NIS dan NSS jangan dimasukan ke data npsn), dan alamat (NPSN & alamat opsional).
-3. Bandingkan dengan data yang benar (perbedaan karena tambahan seperti "UPT", "Negeri", singkatan, "PG", dan perbedaan minor lainnya jangan diperhitungkan, anggap 
-   sama saja), namun perbedaan NPSN walau 1 karakter pun dianggap berbeda.
-4. "similarity" = tingkat kemiripan nama sekolah (0-100).
-5. Typo kecil & singkatan (Jl vs Jalan) TIDAK dianggap berbeda.
-6. Tidak adanya NPSN atau alamat TIDAK membuat result failed.
-7. result harus berisi "ok" tanpa kapital jika gambar sesuai.
-8. Hanya beri result "FOTO PAPAN NAMA tidak sesuai" jika foto benar-benar BUKAN plang sekolah tersebut.
-9. "message" = kesimpulan singkat.
-
-PENTING:
-- Jangan menambahkan komentar apa pun.
-- Jangan menggunakan markdown.
-- Jangan mengubah struktur JSON.
-- Output harus TEXT biasa.
-`;
-
-
-
-const promptSerial = `
-JANGAN RESPOND DALAM BLOCK CODE (\\\`\\\`\\\`), JANGAN GUNAKAN MARKDOWN.
-Balas dalam TEXT BIASA tetapi ISINYA mengikuti FORMAT JSON berikut:
-
-{
-  "code": "OK / failed",
-  "similarity": 0-100,
-  "detected": {
-    "serial_number": "..."
-  },
-  "expected": {
-    "serial_number": "..."
-  },
-  "suspected_differences": [
-    {
-      "field": "serial_number",
-      "expected": "...",
-      "detected": "..."
-    }
-  ],
-  "result": "ok / FOTO SERIAL NUMBER tidak sesuai / FOTO SERIAL NUMBER tidak terlihat",
-  "message": "..."
-}
-
-DATA SERIAL NUMBER YANG BENAR:
-- Serial Number: ${expectedSerialNumber || "-"}
-
-TUGAS:
-1. OCR seluruh teks dalam foto.
-2. Temukan serial number utama (angka panjang di BAWAH barcode).
-   Abaikan angka kecil di atas barcode.
-3. Bandingkan hasil OCR dengan serial number yang benar (SEMUA HARUS PERSIS (namun abaikan kapital), "jika ada perbedaan 1 karakter pun maka result = FOTO SERIAL NUMBER tidak sesuai").
-4. Hanya beri FAILED jika:
-   - Foto tidak terlihat (buram/tidak fokus), JANGAN COBA MENEBAK, jika gambar tidak terbaca jelas sedikitpun, anggap tidak terlihat dan beri result "FOTO SERIAL NUMBER tidak terlihat".
-   - foto bukan SN sama sekali (foto random), atau
-   - serial number terlihat tapi ada perbedaan (walau hanya 1 karakter pun).
-5. "message" = kesimpulan singkat.
-6. result harus berisi "ok" tanpa kapital jika gambar sesuai.
-
-PENTING:
-- Jangan menambahkan komentar apa pun.
-- Jangan menggunakan markdown.
-- Jangan mengubah struktur JSON.
-- Output harus TEXT biasa.
-`;
-
-
-   // pilih prompt
-  const selectedPrompt = imageIndex === 0 ? promptPlang : promptSerial;
-
-  // ====== Kirim ke Gemini ======
-  const result = await ai.models.generateContent({
-    model: "gemini-2.5-flash-lite",
-    contents: [
-      { inlineData: { mimeType: "image/jpeg", data: base64 } },
-      { text: selectedPrompt },
-    ],
-  });
 
   const raw = result.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
 
@@ -160,28 +119,66 @@ PENTING:
       { status: 500 }
     );
   }
-  
-  if (imageIndex === 0) {
-    // Plang = kolom K
-    parsed.autoEvaluation = {
+  switch(imageIndex) {
+    case 0:{
+      parsed.autoEvaluation = {
       K: parsed.result === "ok" ? "Sesuai" : "Tidak Sesuai",
-    };
-  }
-
-  if (imageIndex === 4) {
-    // Serial Number = kolom N
-    if (parsed.result === "ok") {
+      }; 
+      break;}
+    case 4:{
+      if (parsed.result === "ok") {
       parsed.autoEvaluation = { N: "Sesuai" };
-    } else if (parsed.result === "FOTO SERIAL NUMBER tidak terlihat") {
-      parsed.autoEvaluation = { N: "Tidak Terlihat" };
-    } else {
-      parsed.autoEvaluation = { N: "Tidak Sesuai" };
-    }
+      } else if (parsed.result === "FOTO SERIAL NUMBER tidak terlihat") {
+        parsed.autoEvaluation = { N: "Tidak Terlihat" };
+      } else {
+        parsed.autoEvaluation = { N: "Tidak Sesuai" };
+      }
+      parsed.correctedValues = {
+        serial_number: parsed.detected?.serial_number || "",
+      }; 
+      break;}
+    case 6:{
+      if (parsed.result === "ok") {
+        parsed.autoEvaluation = { Q: "Lengkap" };
+      } else if (parsed.result === "BAPP Tidak Jelas") {
+        parsed.autoEvaluation = { Q: "BAPP Tidak Jelas" };
+      } else if (parsed.result === "Nama Sekolah berbeda" || parsed.result === "NPSN berbeda") {
+        parsed.autoEvaluation = { P: "Tidak Sesuai" };
+      } else {
+        parsed.autoEvaluation = { Q: "Tidak Sesuai" };
+      } 
+      break;}
+    case 7:{
+      const result = parsed.result;
+      if (result === "ok") {
+        parsed.autoEvaluation = { U: "Lengkap" };
+        return NextResponse.json(parsed);
+      }
+      if (Array.isArray(result)) {
+        const autoEval: Record<string, string> = {};
 
-    parsed.correctedValues = {
-      serial_number: parsed.detected?.serial_number || "",
-    };
+        if (result.includes("FOTO BAPP HAL 2 tidak jelas")) {
+          autoEval.U = "BAPP Tidak Jelas";
+        }
+
+        if (result.includes("Stempel tidak ada")) {
+          autoEval.T = "Tidak Ada";
+        }
+        if (result.includes("Sekolah tidak sesuai")) {
+          autoEval.T = "Tidak Sesuai";
+        }
+
+        if (result.includes("ttd tidak ditemukan")) {
+          autoEval.S = "TTD Tidak Ada";
+        }
+
+        if (result.includes("peserta pelatihan tidak ada")) {
+          autoEval.V = "Tidak Ada";
+        }
+
+        parsed.autoEvaluation = autoEval;
+      }
+      break;}
   }
-
   return NextResponse.json(parsed);
 }

@@ -4,7 +4,11 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import StickyInfoBox from "./StickyInfoBox";
 import StickyEvaluationBox from "./StickyEvaluationBox";
-import { useAppContext, type DkmData, type HisenseData } from "@/context/AppProvider";
+import {
+  useAppContext,
+  type DkmData,
+  type HisenseData,
+} from "@/context/AppProvider";
 
 interface AIPlangResult {
   code: string;
@@ -40,6 +44,48 @@ interface AISNResult {
     serial_number?: string;
   };
 }
+export interface AIBapp1Result {
+  code: string;
+  detected: {
+    school_name?: string;
+    npsn?: string;
+    tanggal_pengisian?: string;
+  };
+  expected: {
+    school_name: string;
+    npsn: string;
+  };
+  suspected_differences?: {
+    field: string;
+    expected: string;
+    detected: string;
+  }[];
+  result: string;
+  message: string;
+  autoEvaluation?: {
+    Q?: string; // BAPP HAL 1
+  };
+}
+export interface AIBapp2Result {
+  code: string;
+  detected: {
+    school_name?: string;
+    tanggal?: string;
+  };
+  expected: {
+    school_name: string;
+  };
+  suspected_differences?: {
+    field: string;
+    expected: string;
+    detected: string;
+  }[];
+  result: string;
+  message: string;
+  autoEvaluation?: {
+    U?: string; // BAPP HAL 2
+  };
+}
 
 const InfoField = ({
   label,
@@ -73,7 +119,7 @@ function AIResultBox({
   result,
   title,
 }: {
-  result: AIPlangResult | AISNResult;
+  result: AIPlangResult | AISNResult | AIBapp1Result | AIBapp2Result;
   title: string;
 }) {
   if (!result) return null;
@@ -111,28 +157,29 @@ function AIResultBox({
         ))}
       </div>
 
-      {result.suspected_differences && result.suspected_differences.length > 0 && (
-        <div className="mt-3">
-          <p className="font-semibold mb-1">Perbedaan Terdeteksi:</p>
-          <div className="border border-red-200 rounded-md bg-red-50 p-2 text-[13px] max-h-32 overflow-y-auto">
-            {result.suspected_differences.map((d, i) => (
-              <div key={i} className="mb-2">
-                <span className="font-semibold text-red-700 capitalize">
-                  {d.field}
-                </span>
-                <div className="pl-2 text-red-600">
-                  <div>
-                    <b>Expected:</b> &quot;{d.expected}&quot;
-                  </div>
-                  <div>
-                    <b>Detected:</b> &quot;{d.detected}&quot;
+      {result.suspected_differences &&
+        result.suspected_differences.length > 0 && (
+          <div className="mt-3">
+            <p className="font-semibold mb-1">Perbedaan Terdeteksi:</p>
+            <div className="border border-red-200 rounded-md bg-red-50 p-2 text-[13px] max-h-32 overflow-y-auto">
+              {result.suspected_differences.map((d, i) => (
+                <div key={i} className="mb-2">
+                  <span className="font-semibold text-red-700 capitalize">
+                    {d.field}
+                  </span>
+                  <div className="pl-2 text-red-600">
+                    <div>
+                      <b>Expected:</b> &quot;{d.expected}&quot;
+                    </div>
+                    <div>
+                      <b>Detected:</b> &quot;{d.detected}&quot;
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <div className="mt-4 p-3 rounded-md bg-gray-100 border border-gray-300 text-sm leading-relaxed">
         <span className="font-semibold">Kesimpulan:</span> {result.message}
@@ -142,7 +189,15 @@ function AIResultBox({
 }
 
 export default function DkmDetails({ data }: { data: DkmData }) {
+  const [aiResultBapp1, setAiResultBapp1] = useState<AIBapp1Result | null>(
+    null
+  );
+  const [aiResultBapp2, setAiResultBapp2] = useState<AIBapp2Result | null>(
+    null
+  );
+
   const { setEvaluationForm, setCorrectSerialNumber } = useAppContext();
+  const { installationDate, setInstallationDate } = useAppContext();
   const aiHasRun = useRef(false);
 
   const [isProsesOpen, setIsProsesOpen] = useState(false);
@@ -296,6 +351,41 @@ export default function DkmDetails({ data }: { data: DkmData }) {
             .catch(() => {})
         );
       }
+      // BAPP HAL 1 (index 6)
+      if (imageList[6]) {
+        tasks.push(
+          fetch("/api/ai-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIndex: 6,
+              imageUrl: imageList[6],
+              expectedSchoolName: schoolInfo.Nama,
+              expectedNPSN: schoolInfo.NPSN,
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => setAiResultBapp1(d))
+            .catch(() => {})
+        );
+      }
+
+      // BAPP HAL 2 (index 7)
+      if (imageList[7]) {
+        tasks.push(
+          fetch("/api/ai-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIndex: 7,
+              imageUrl: imageList[7],
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => setAiResultBapp2(d))
+            .catch(() => {})
+        );
+      }
 
       await Promise.all(tasks);
     };
@@ -328,6 +418,35 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [currentImageIndex, imageList.length]);
+
+  useEffect(() => {
+    if (aiResultBapp1?.autoEvaluation) {
+      setEvaluationForm((prev) => ({
+        ...prev,
+        ...aiResultBapp1.autoEvaluation,
+      }));
+    }
+  }, [aiResultBapp1]);
+  
+  useEffect(() => {
+  const raw = aiResultBapp2?.detected?.tanggal;
+  if (!raw) return;
+
+  const [mm, dd, yyyy] = raw.split("/");
+  const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+
+  setInstallationDate(iso);
+}, [aiResultBapp2]);
+
+
+  useEffect(() => {
+    if (aiResultBapp2?.autoEvaluation) {
+      setEvaluationForm((prev) => ({
+        ...prev,
+        ...aiResultBapp2.autoEvaluation,
+      }));
+    }
+  }, [aiResultBapp2]);
 
   useEffect(() => {
     if (!aiResultPlang) return;
@@ -594,6 +713,12 @@ export default function DkmDetails({ data }: { data: DkmData }) {
 
           {currentImageIndex === 4 && aiResultSN && (
             <AIResultBox result={aiResultSN} title="Analisis Serial Number" />
+          )}
+          {currentImageIndex === 6 && aiResultBapp1 && (
+            <AIResultBox result={aiResultBapp1} title="Analisis BAPP Hal 1" />
+          )}
+          {currentImageIndex === 7 && aiResultBapp2 && (
+            <AIResultBox result={aiResultBapp2} title="Analisis BAPP Hal 2" />
           )}
 
           <TransformWrapper initialScale={1} key={currentImageIndex}>
