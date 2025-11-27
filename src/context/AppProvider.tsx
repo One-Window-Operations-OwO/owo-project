@@ -224,6 +224,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [allPendingRows, currentRowIndex]
   );
 
+  const [dkmDataCache, setDkmDataCache] = useState<Map<string, DkmData>>(new Map());
+
+  const prefetchDetailsForRow = useCallback(async (row: SheetRow) => {
+    try {
+      const headerRow = row.headerRow;
+      if (!headerRow) return;
+      const npsnCol = headerRow.indexOf("NPSN");
+      let rawNpsn = String(row.rowData[npsnCol]);
+      if (!rawNpsn) return;
+
+      if (dkmDataCache.has(rawNpsn)) return;
+
+      const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
+      const cookie = localStorage.getItem("hisense_cookie");
+      if (!cookie) return;
+
+      const response = await fetch("/api/combined", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
+      });
+
+      if (!response.ok) return;
+
+      const data: DkmData = await response.json();
+      setDkmDataCache(prevCache => new Map(prevCache).set(rawNpsn, data));
+    } catch (err) {
+      console.error("Prefetch failed:", err);
+    }
+  }, [dkmDataCache]);
+
   const fetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
       if (!row) return;
@@ -236,6 +267,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const npsnCol = headerRow.indexOf("NPSN");
         let rawNpsn = String(row.rowData[npsnCol]);
         if (!rawNpsn) throw new Error("NPSN tidak ditemukan di baris ini.");
+
+        if (dkmDataCache.has(rawNpsn)) {
+          const data = dkmDataCache.get(rawNpsn)!;
+          setDkmData(data);
+          setEvaluationForm(defaultEvaluationValues);
+          setCorrectSerialNumber(
+            data.hisense.schoolInfo?.["Serial Number"] || ""
+          );
+          const instalasiSelesai = data.hisense.processHistory?.find(
+            (h) => h.status === "INSTALASI SELESAI"
+          );
+          if (instalasiSelesai && instalasiSelesai.tanggal) {
+            const datePart = instalasiSelesai.tanggal.split(" ")[0];
+            setInstallationDate(datePart);
+          }
+          setIsFetchingDetails(false);
+          return;
+        }
 
         const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
 
@@ -265,6 +314,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         const data: DkmData = await response.json();
+        setDkmDataCache(prevCache => new Map(prevCache).set(rawNpsn, data));
 
         if (!data.hisense.isGreen) {
           handleSkip(false);
@@ -291,7 +341,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsFetchingDetails(false);
       }
     },
-    [handleSkip]
+    [handleSkip, dkmDataCache]
   );
 
   useEffect(() => {
@@ -355,10 +405,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (allPendingRows.length > 0 && currentRowIndex < allPendingRows.length) {
       const currentRow = allPendingRows[currentRowIndex];
       fetchDetailsForRow(currentRow);
+
+      const nextIndex = currentRowIndex + 1;
+      if (nextIndex < allPendingRows.length) {
+        const nextRow = allPendingRows[nextIndex];
+        prefetchDetailsForRow(nextRow);
+      }
+
     } else if (allPendingRows.length === 0 && !isLoading) {
       setDkmData(null);
     }
-  }, [currentRowIndex, allPendingRows, fetchDetailsForRow, isLoading]);
+  }, [currentRowIndex, allPendingRows, fetchDetailsForRow, prefetchDetailsForRow, isLoading]);
 
   const generateRejectionMessage = useCallback(() => {
     const rejectionReasons: { [key: string]: string } = {
