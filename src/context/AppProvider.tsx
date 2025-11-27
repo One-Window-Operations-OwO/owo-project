@@ -236,8 +236,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const headerRow = row.headerRow;
         if (!headerRow) throw new Error("Header row tidak ditemukan.");
         const npsnCol = headerRow.indexOf("NPSN");
-        const npsn = row.rowData[npsnCol];
-        if (!npsn) throw new Error("NPSN tidak ditemukan di baris ini.");
+        let rawNpsn = String(row.rowData[npsnCol]);
+        if (!rawNpsn) throw new Error("NPSN tidak ditemukan di baris ini.");
+
+        const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
 
         const cookie = localStorage.getItem("hisense_cookie");
         if (!cookie) throw new Error("Cookie Hisense tidak ditemukan.");
@@ -255,7 +257,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const response = await fetch("/api/combined", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q: npsn, cookie }),
+          body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
         });
 
         if (!response.ok) {

@@ -144,11 +144,11 @@ async function getHisense(npsn: string, cookie: string) {
 
 export async function POST(req: Request) {
   try {
-    const { q, cookie } = await req.json();
+    const { q_raw, q, cookie } = await req.json();
 
     const [datadik, hisense] = await Promise.allSettled([
       getDatadik(q),
-      getHisense(q, cookie),
+      getHisense(q_raw, cookie),
     ]);
 
     return NextResponse.json({
