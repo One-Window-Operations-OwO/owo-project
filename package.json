@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/genai": "^1.30.0",
     "cheerio": "^1.1.2",
     "fuse.js": "^7.1.0",
     "googleapis": "^159.0.0",

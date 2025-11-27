@@ -1,11 +1,91 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import type { DkmData } from "@/context/AppProvider";
-import StickyInfoBox from "./StickyInfoBox";
-import type { HisenseData, HisenseProcessHistory } from "@/context/AppProvider";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import StickyInfoBox from "./StickyInfoBox";
 import StickyEvaluationBox from "./StickyEvaluationBox";
+import {
+  useAppContext,
+  type DkmData,
+  type HisenseData,
+} from "@/context/AppProvider";
+
+interface AIPlangResult {
+  code: string;
+  similarity: number;
+  detected: Record<string, string | undefined>;
+  suspected_differences?: Array<{
+    field: string;
+    expected: string;
+    detected: string;
+  }>;
+  result: string;
+  message: string;
+  autoEvaluation?: Record<string, string>;
+  correctedValues?: {
+    serial_number?: string;
+  };
+}
+
+interface AISNResult {
+  code: string;
+  similarity?: number;
+  detected: Record<string, string | undefined>;
+  expected?: Record<string, string | undefined>;
+  suspected_differences?: Array<{
+    field: string;
+    expected: string;
+    detected: string;
+  }>;
+  result: string;
+  message: string;
+  autoEvaluation?: Record<string, string>;
+  correctedValues?: {
+    serial_number?: string;
+  };
+}
+export interface AIBapp1Result {
+  code: string;
+  detected: {
+    school_name?: string;
+    npsn?: string;
+    tanggal_pengisian?: string;
+  };
+  expected: {
+    school_name: string;
+    npsn: string;
+  };
+  suspected_differences?: {
+    field: string;
+    expected: string;
+    detected: string;
+  }[];
+  result: string;
+  message: string;
+  autoEvaluation?: {
+    Q?: string; // BAPP HAL 1
+  };
+}
+export interface AIBapp2Result {
+  code: string;
+  detected: {
+    school_name?: string;
+    tanggal?: string;
+  };
+  expected: {
+    school_name: string;
+  };
+  suspected_differences?: {
+    field: string;
+    expected: string;
+    detected: string;
+  }[];
+  result: string;
+  message: string;
+  autoEvaluation?: {
+    U?: string; // BAPP HAL 2
+  };
+}
 
 const InfoField = ({
   label,
@@ -35,140 +115,167 @@ const InfoField = ({
   </div>
 );
 
+function AIResultBox({
+  result,
+  title,
+}: {
+  result: AIPlangResult | AISNResult | AIBapp1Result | AIBapp2Result;
+  title: string;
+}) {
+  if (!result) return null;
+
+  const getSimColor = (sim: number) => {
+    if (sim >= 70) return "bg-green-100 text-green-700 border-green-300";
+    if (sim >= 40) return "bg-yellow-100 text-yellow-700 border-yellow-300";
+    return "bg-red-100 text-red-700 border-red-300";
+  };
+
+  const detectedEntries = Object.entries(result.detected || {});
+
+  return (
+    <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md text-gray-900 p-5 rounded-xl shadow-xl border border-gray-200 z-[60] w-80 animate-fadeIn">
+      <h2 className="text-lg font-bold mb-3 text-gray-800">🔍 {title}</h2>
+
+      {"similarity" in result && result.similarity !== undefined && (
+        <div
+          className={`px-3 py-1 rounded-md text-sm font-semibold inline-block mb-3 border ${getSimColor(
+            result.similarity
+          )}`}
+        >
+          Similarity: {result.similarity}%
+        </div>
+      )}
+
+      <div className="text-sm space-y-1 mb-3">
+        {detectedEntries.map(([key, val]) => (
+          <p key={key}>
+            <span className="font-semibold capitalize">
+              {key.replace(/_/g, " ")}:
+            </span>{" "}
+            {String(val ?? "-")}
+          </p>
+        ))}
+      </div>
+
+      {result.suspected_differences &&
+        result.suspected_differences.length > 0 && (
+          <div className="mt-3">
+            <p className="font-semibold mb-1">Perbedaan Terdeteksi:</p>
+            <div className="border border-red-200 rounded-md bg-red-50 p-2 text-[13px] max-h-32 overflow-y-auto">
+              {result.suspected_differences.map((d, i) => (
+                <div key={i} className="mb-2">
+                  <span className="font-semibold text-red-700 capitalize">
+                    {d.field}
+                  </span>
+                  <div className="pl-2 text-red-600">
+                    <div>
+                      <b>Expected:</b> &quot;{d.expected}&quot;
+                    </div>
+                    <div>
+                      <b>Detected:</b> &quot;{d.detected}&quot;
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      <div className="mt-4 p-3 rounded-md bg-gray-100 border border-gray-300 text-sm leading-relaxed">
+        <span className="font-semibold">Kesimpulan:</span> {result.message}
+      </div>
+    </div>
+  );
+}
+
 export default function DkmDetails({ data }: { data: DkmData }) {
+  const [aiResultBapp1, setAiResultBapp1] = useState<AIBapp1Result | null>(
+    null
+  );
+  const [aiResultBapp2, setAiResultBapp2] = useState<AIBapp2Result | null>(
+    null
+  );
+
+  const { setEvaluationForm, setCorrectSerialNumber } = useAppContext();
+  const { installationDate, setInstallationDate } = useAppContext();
+  const aiHasRun = useRef(false);
+
   const [isProsesOpen, setIsProsesOpen] = useState(false);
   const [isDokumentasiOpen, setIsDokumentasiOpen] = useState(true);
+
   const [mismatches, setMismatches] = useState<Record<string, boolean>>({});
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(
     null
   );
-  // State baru untuk rotasi gambar
+
   const [imageRotation, setImageRotation] = useState(0);
+  const [aiResultPlang, setAiResultPlang] = useState<AIPlangResult | null>(
+    null
+  );
+  const [aiResultSN, setAiResultSN] = useState<AISNResult | null>(null);
 
   const prosesRef = useRef<HTMLDivElement>(null);
 
-  // Ambil data dari datadik dan hisense
-  const datadik = data.datadik || {};
-  const ptkList = datadik.ptk || [];
-  const hisense = data.hisense;
-  const schoolInfo = (hisense as HisenseData).schoolInfo || {};
-  const images = (hisense as HisenseData).images || {};
-  const processHistory = (hisense as HisenseData).processHistory || [];
-  const imageList = Object.values(images);
+  const datadik = useMemo(() => data.datadik || {}, [data.datadik]);
+  const ptkList = useMemo(() => datadik.ptk || [], [datadik.ptk]);
+  const hisense = useMemo(() => data.hisense || {}, [data.hisense]);
+  const schoolInfo = useMemo(
+    () => (hisense as HisenseData).schoolInfo || {},
+    [hisense]
+  );
 
-  // Fungsi bandingkan string
-  const cleanAndCompare = (val1?: string, val2?: string) => {
-    if (typeof val1 !== "string" || typeof val2 !== "string") return false;
-    return val1.trim().toLowerCase() === val2.trim().toLowerCase();
-  };
+  const images = (hisense as HisenseData).images || {};
+  const processHistory = useMemo(
+    () => (hisense as HisenseData).processHistory || [],
+    [hisense]
+  );
+
+  const imageList = useMemo(() => Object.values(images), [images]);
+
+  const cleanAndCompare = (a?: string, b?: string) =>
+    typeof a === "string" &&
+    typeof b === "string" &&
+    a.trim().toLowerCase() === b.trim().toLowerCase();
+
   useEffect(() => {
-    processHistory.map((item: HisenseProcessHistory) => {
-      if (/DATA DITOLAK/.test(item.status!)) {
+    for (const item of processHistory) {
+      if (/DATA DITOLAK/.test(item.status || "")) {
         setIsProsesOpen(true);
+        break;
       }
-    });
-    // scroll otomatis setelah dibuka
+    }
+
     setTimeout(() => {
       if (prosesRef.current) {
         prosesRef.current.scrollTop = prosesRef.current.scrollHeight;
       }
-    }, 100); // kasih delay kecil supaya render selesai
+    }, 100);
   }, [processHistory]);
-  // Cek mismatch antar hisense dan datadik
-  useEffect(() => {
-    if (!schoolInfo || !datadik) return;
-    const newMismatches: Record<string, boolean> = {};
-    newMismatches["Nama"] = !cleanAndCompare(schoolInfo.Nama, datadik.name);
-    newMismatches["Alamat"] = !cleanAndCompare(
-      schoolInfo.Alamat,
-      datadik.address
-    );
-    newMismatches["Kecamatan"] = !cleanAndCompare(
-      schoolInfo.Kecamatan,
-      datadik.kecamatan
-    );
-    newMismatches["Kabupaten"] = !cleanAndCompare(
-      schoolInfo.Kabupaten,
-      datadik.kabupaten
-    );
-    newMismatches["PIC"] = !cleanAndCompare(
-      schoolInfo.PIC,
-      datadik.kepalaSekolah
-    );
-    setMismatches(newMismatches); // Update state mismatches
-  }, [schoolInfo, datadik]);
-
-  // Reset rotasi saat gambar berubah
-  useEffect(() => {
-    setImageRotation(0);
-  }, [currentImageIndex]);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    if (currentImageIndex === null) return;
+
+    const handleMouseDown = (e: MouseEvent) => {
       if (currentImageIndex === null) return;
 
-      // Abaikan input aktif
-      const active = document.activeElement;
-      if (
-        active &&
-        (active.tagName === "INPUT" ||
-          active.tagName === "TEXTAREA" ||
-          active.getAttribute("contenteditable") === "true")
-      ) {
-        if (event.key === "Escape") setCurrentImageIndex(null);
-        return;
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
       }
 
-      // Escape → tutup gambar
-      if (event.key === "Escape") setCurrentImageIndex(null);
-
-      // Next
-      if (event.key === "ArrowRight" || event.key === "d" || event.key === "D")
-        setCurrentImageIndex((prev) => (prev! + 1) % imageList.length);
-
-      // Prev
-      if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A")
-        setCurrentImageIndex(
-          (prev) => (prev! - 1 + imageList.length) % imageList.length
-        );
-
-      // Putar Kiri
-      if (event.key === "q" || event.key === "Q") {
-        rotateImage("left");
-      }
-
-      // Putar Kanan
-      if (event.key === "e" || event.key === "E") {
-        rotateImage("right");
-      }
-    };
-
-    const handleMouseDown = (event: MouseEvent) => {
-      if (currentImageIndex === null) return;
-
-      // Tombol samping mouse
-      if (event.button === 3 || event.button === 4) {
-        // 🔒 Cegah browser navigasi back/forward
-        event.preventDefault();
-      }
-
-      if (event.button === 4) {
-        // Forward → next
-        setCurrentImageIndex((prev) => (prev! + 1) % imageList.length);
-      }
-      if (event.button === 3) {
-        // Back → previous
+      if (e.button === 3) {
         setCurrentImageIndex(
           (prev) => (prev! - 1 + imageList.length) % imageList.length
         );
       }
+
+      if (e.button === 4) {
+        setCurrentImageIndex((prev) => (prev! + 1) % imageList.length);
+      }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    const handleMouseUp = (event: MouseEvent) => {
-      if (currentImageIndex === null) return;
-      if (event.button === 3 || event.button === 4) {
-        event.preventDefault();
+    const handleMouseUp = (e: MouseEvent) => {
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
       }
     };
 
@@ -176,19 +283,205 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     window.addEventListener("mouseup", handleMouseUp);
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("mousedown", handleMouseDown);
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [currentImageIndex, imageList.length]);
 
-  const rotateImage = (direction: "left" | "right") => {
-    if (direction === "right") {
-      setImageRotation((prev) => (prev + 90) % 360);
-    } else {
-      setImageRotation((prev) => (prev - 90 + 360) % 360);
+  useEffect(() => {
+    if (!schoolInfo || !datadik) return;
+
+    const m: Record<string, boolean> = {
+      Nama: !cleanAndCompare(schoolInfo.Nama, datadik.name),
+      Alamat: !cleanAndCompare(schoolInfo.Alamat, datadik.address),
+      Kecamatan: !cleanAndCompare(schoolInfo.Kecamatan, datadik.kecamatan),
+      Kabupaten: !cleanAndCompare(schoolInfo.Kabupaten, datadik.kabupaten),
+      PIC: !cleanAndCompare(schoolInfo.PIC, datadik.kepalaSekolah),
+    };
+
+    setMismatches(m);
+  }, [schoolInfo, datadik]);
+
+  useEffect(() => {
+    setImageRotation(0);
+  }, [currentImageIndex]);
+
+  useEffect(() => {
+    if (aiHasRun.current) return;
+    if (process.env.NEXT_PUBLIC_GEMINI_API_KEY === undefined) return;
+    if (!imageList || imageList.length === 0) return;
+
+    aiHasRun.current = true;
+
+    const runAllAI = async () => {
+      const tasks: Promise<void>[] = [];
+
+      if (imageList[0]) {
+        tasks.push(
+          fetch("/api/ai-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIndex: 0,
+              imageUrl: imageList[0],
+              expectedSchoolName: schoolInfo.Nama,
+              expectedNPSN: schoolInfo.NPSN,
+              expectedAddress: schoolInfo.Alamat,
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => setAiResultPlang(d))
+            .catch(() => {})
+        );
+      }
+
+      if (imageList[4]) {
+        tasks.push(
+          fetch("/api/ai-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIndex: 4,
+              imageUrl: imageList[4],
+              expectedSerialNumber: schoolInfo["Serial Number"],
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => setAiResultSN(d))
+            .catch(() => {})
+        );
+      }
+      // BAPP HAL 1 (index 6)
+      if (imageList[6]) {
+        tasks.push(
+          fetch("/api/ai-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIndex: 6,
+              imageUrl: imageList[6],
+              expectedSchoolName: schoolInfo.Nama,
+              expectedNPSN: schoolInfo.NPSN,
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => setAiResultBapp1(d))
+            .catch(() => {})
+        );
+      }
+
+      // BAPP HAL 2 (index 7)
+      if (imageList[7]) {
+        tasks.push(
+          fetch("/api/ai-verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIndex: 7,
+              imageUrl: imageList[7],
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => setAiResultBapp2(d))
+            .catch(() => {})
+        );
+      }
+
+      await Promise.all(tasks);
+    };
+
+    runAllAI();
+  }, [imageList, schoolInfo]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (currentImageIndex === null) return;
+
+      const active = document.activeElement;
+      if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+        if (e.key === "Escape") setCurrentImageIndex(null);
+        return;
+      }
+
+      if (e.key === "Escape") setCurrentImageIndex(null);
+      if (e.key === "ArrowRight" || e.key.toLowerCase() === "d")
+        setCurrentImageIndex((p) => (p! + 1) % imageList.length);
+      if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a")
+        setCurrentImageIndex(
+          (p) => (p! - 1 + imageList.length) % imageList.length
+        );
+      if (e.key.toLowerCase() === "q")
+        setImageRotation((p) => (p - 90 + 360) % 360);
+      if (e.key.toLowerCase() === "e") setImageRotation((p) => (p + 90) % 360);
+    };
+
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [currentImageIndex, imageList.length]);
+
+  useEffect(() => {
+    if (aiResultBapp1?.autoEvaluation) {
+      setEvaluationForm((prev) => ({
+        ...prev,
+        ...aiResultBapp1.autoEvaluation,
+      }));
     }
-  };
+  }, [aiResultBapp1]);
+  
+  useEffect(() => {
+  const raw = aiResultBapp2?.detected?.tanggal;
+  if (!raw) return;
+
+  const [mm, dd, yyyy] = raw.split("/");
+  const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+
+  setInstallationDate(iso);
+}, [aiResultBapp2]);
+
+
+  useEffect(() => {
+    if (aiResultBapp2?.autoEvaluation) {
+      setEvaluationForm((prev) => ({
+        ...prev,
+        ...aiResultBapp2.autoEvaluation,
+      }));
+    }
+  }, [aiResultBapp2]);
+
+  useEffect(() => {
+    if (!aiResultPlang) return;
+
+    if (aiResultPlang.autoEvaluation) {
+      setEvaluationForm((prev) => ({
+        ...prev,
+        ...aiResultPlang.autoEvaluation,
+      }));
+    }
+
+    if (aiResultPlang.correctedValues?.serial_number) {
+      setCorrectSerialNumber(aiResultPlang.correctedValues.serial_number);
+    }
+  }, [aiResultPlang, setEvaluationForm, setCorrectSerialNumber]);
+
+  useEffect(() => {
+    if (!aiResultSN) return;
+
+    if (aiResultSN.autoEvaluation) {
+      setEvaluationForm((prev) => ({
+        ...prev,
+        ...aiResultSN.autoEvaluation,
+      }));
+    }
+
+    if (aiResultSN.correctedValues?.serial_number) {
+      setCorrectSerialNumber(aiResultSN.correctedValues.serial_number);
+    }
+  }, [aiResultSN, setEvaluationForm, setCorrectSerialNumber]);
+
+  const rotateImage = (dir: "left" | "right") =>
+    setImageRotation((p) =>
+      dir === "right" ? (p + 90) % 360 : (p - 90 + 360) % 360
+    );
 
   return (
     <>
@@ -205,10 +498,11 @@ export default function DkmDetails({ data }: { data: DkmData }) {
             }}
             ptkList={ptkList}
           />
+
           <StickyEvaluationBox currentImageIndex={currentImageIndex} />
         </>
       )}
-      {/* StickyInfoBox bisa diisi jika ingin menampilkan info PTK dsb */}
+
       <div className="w-full bg-white p-6 rounded-lg shadow-lg flex flex-col gap-4">
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-12 gap-4">
@@ -231,6 +525,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               isMismatched={!!mismatches["Alamat"]}
             />
           </div>
+
           <div className="grid grid-cols-12 gap-4">
             <InfoField
               label="Provinsi"
@@ -281,6 +576,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               isMismatched={false}
             />
           </div>
+
           <div className="grid grid-cols-12 gap-4">
             <InfoField
               label="PIC"
@@ -314,6 +610,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
             />
           </div>
         </div>
+
         <div>
           <button
             onClick={() => setIsProsesOpen(!isProsesOpen)}
@@ -328,12 +625,12 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               ▼
             </span>
           </button>
+
           {isProsesOpen && (
             <div
               ref={prosesRef}
               className="p-3 mt-2 border rounded-md max-h-60 overflow-y-auto text-xs"
             >
-              {" "}
               <table className="table-auto w-full">
                 <thead>
                   <tr className="text-left bg-gray-50">
@@ -343,30 +640,29 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {processHistory.map(
-                    (item: HisenseProcessHistory, index: number) => {
-                      const isDitolak = /DITOLAK/i.test(item.status || ""); // cek case-insensitive
-                      return (
-                        <tr
-                          key={index}
-                          className={`border-t hover:bg-gray-50 ${
-                            isDitolak
-                              ? "bg-red-100 text-red-700 font-semibold"
-                              : ""
-                          }`}
-                        >
-                          <td className="p-2">{item.tanggal}</td>
-                          <td className="p-2">{item.status}</td>
-                          <td className="p-2">{item.keterangan}</td>
-                        </tr>
-                      );
-                    }
-                  )}
+                  {processHistory.map((item, index) => {
+                    const isDitolak = /DITOLAK/i.test(item.status || "");
+                    return (
+                      <tr
+                        key={index}
+                        className={`border-t hover:bg-gray-50 ${
+                          isDitolak
+                            ? "bg-red-100 text-red-700 font-semibold"
+                            : ""
+                        }`}
+                      >
+                        <td className="p-2">{item.tanggal}</td>
+                        <td className="p-2">{item.status}</td>
+                        <td className="p-2">{item.keterangan}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
+
         <div>
           <button
             onClick={() => setIsDokumentasiOpen(!isDokumentasiOpen)}
@@ -383,6 +679,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               ▼
             </span>
           </button>
+
           {isDokumentasiOpen && (
             <div className="p-4 mt-2 border rounded-md grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               {Object.entries(images).map(([key, value], index) => (
@@ -392,7 +689,6 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                     onClick={() => setCurrentImageIndex(index)}
                     className="cursor-pointer"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={value as string}
                       alt={key}
@@ -405,11 +701,26 @@ export default function DkmDetails({ data }: { data: DkmData }) {
           )}
         </div>
       </div>
+
       {currentImageIndex !== null && (
         <div
           className="fixed inset-0 bg-black bg-opacity-80 flex flex-col justify-center items-center z-50 p-4"
           onClick={() => setCurrentImageIndex(null)}
         >
+          {currentImageIndex === 0 && aiResultPlang && (
+            <AIResultBox result={aiResultPlang} title="Analisis Plang" />
+          )}
+
+          {currentImageIndex === 4 && aiResultSN && (
+            <AIResultBox result={aiResultSN} title="Analisis Serial Number" />
+          )}
+          {currentImageIndex === 6 && aiResultBapp1 && (
+            <AIResultBox result={aiResultBapp1} title="Analisis BAPP Hal 1" />
+          )}
+          {currentImageIndex === 7 && aiResultBapp2 && (
+            <AIResultBox result={aiResultBapp2} title="Analisis BAPP Hal 2" />
+          )}
+
           <TransformWrapper initialScale={1} key={currentImageIndex}>
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
@@ -418,21 +729,19 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
-                    title="Zoom In"
                     onClick={() => zoomIn()}
                     className="bg-white text-black w-10 h-10 rounded-full font-bold text-xl shadow-lg"
                   >
                     +
                   </button>
                   <button
-                    title="Zoom Out"
                     onClick={() => zoomOut()}
                     className="bg-white text-black w-10 h-10 rounded-full font-bold text-xl shadow-lg"
                   >
                     -
                   </button>
+
                   <button
-                    title="Reset Zoom"
                     onClick={() => {
                       resetTransform();
                       setImageRotation(0);
@@ -443,48 +752,44 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                   </button>
 
                   <button
-                    title="Putar Kiri"
                     onClick={(e) => {
                       e.stopPropagation();
                       rotateImage("left");
                     }}
                     className="bg-white text-black px-4 h-10 rounded-full font-semibold shadow-lg"
                   >
-                    &#x21BA;
+                    ↺
                   </button>
 
                   <button
-                    title="Putar Kanan"
                     onClick={(e) => {
                       e.stopPropagation();
                       rotateImage("right");
                     }}
                     className="bg-white text-black px-4 h-10 rounded-full font-semibold shadow-lg"
                   >
-                    &#x21BB;
+                    ↻
                   </button>
                 </div>
+
                 <div
                   className="w-full h-full flex items-center justify-center"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <TransformComponent
-                    wrapperStyle={{ maxWidth: "100%", maxHeight: "100%" }}
-                    contentStyle={{ width: "100%", height: "100%" }}
-                  >
+                  <TransformComponent>
                     <img
                       src={imageList[currentImageIndex] as string}
                       alt="Tampilan Penuh"
                       className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl"
-                      style={{ transform: `rotate(${imageRotation}deg)` }} // Apply rotation
+                      style={{ transform: `rotate(${imageRotation}deg)` }}
                     />
                   </TransformComponent>
                 </div>
               </>
             )}
           </TransformWrapper>
+
           <button
-            title="Gambar Sebelumnya (Panah Kiri)"
             onClick={(e) => {
               e.stopPropagation();
               setCurrentImageIndex(
@@ -493,17 +798,17 @@ export default function DkmDetails({ data }: { data: DkmData }) {
             }}
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:opacity-75 transition-opacity"
           >
-            &#10094;
+            ‹
           </button>
+
           <button
-            title="Gambar Berikutnya (Panah Kanan)"
             onClick={(e) => {
               e.stopPropagation();
               setCurrentImageIndex((prev) => (prev! + 1) % imageList.length);
             }}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:opacity-75 transition-opacity"
           >
-            &#10095;
+            ›
           </button>
         </div>
       )}
