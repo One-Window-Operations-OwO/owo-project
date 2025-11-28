@@ -420,6 +420,14 @@ export default function DkmDetails({ data }: { data: DkmData }) {
   }, [currentImageIndex, imageList.length]);
 
   useEffect(() => {
+    setAiResultPlang(null);
+    setAiResultSN(null);
+    setAiResultBapp1(null);
+    setAiResultBapp2(null);
+    aiHasRun.current = false;
+  }, [data]);
+
+  useEffect(() => {
     if (aiResultBapp1?.autoEvaluation) {
       setEvaluationForm((prev) => ({
         ...prev,
@@ -427,17 +435,16 @@ export default function DkmDetails({ data }: { data: DkmData }) {
       }));
     }
   }, [aiResultBapp1]);
-  
+
   useEffect(() => {
-  const raw = aiResultBapp2?.detected?.tanggal;
-  if (!raw) return;
+    const raw = aiResultBapp2?.detected?.tanggal;
+    if (!raw) return;
 
-  const [mm, dd, yyyy] = raw.split("/");
-  const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+    const [mm, dd, yyyy] = raw.split("/");
+    const iso = `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
 
-  setInstallationDate(iso);
-}, [aiResultBapp2]);
-
+    setInstallationDate(iso);
+  }, [aiResultBapp2]);
 
   useEffect(() => {
     if (aiResultBapp2?.autoEvaluation) {
