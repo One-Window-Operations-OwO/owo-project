@@ -13,6 +13,7 @@ import { useSession, signIn } from "next-auth/react";
 import { validateHisenseCookie } from "@/helpers/HisenseCookie";
 
 import LoginComponent from "@/components/LoginComponent";
+import FailedUpdatesModal from "@/components/FailedUpdatesModal";
 import Sidebar from "@/components/Sidebar";
 
 const defaultEvaluationValues: Record<string, string> = {
@@ -122,6 +123,25 @@ export interface SheetRow {
   headerRow?: string[];
 }
 
+interface UpdatePayload {
+  action: "terima" | "tolak";
+  currentRowForUpdate: SheetRow;
+  dkmDataForUpdate: DkmData;
+  evaluationFormForUpdate: Record<string, string>;
+  customReasonForUpdate: string;
+  correctSerialNumberForUpdate: string;
+  installationDateForUpdate: string;
+  cookieForUpdate: string;
+  rejectionMessage: string;
+}
+
+interface FailedUpdate {
+  id: number;
+  payload: UpdatePayload;
+  error: string;
+  schoolName: string;
+}
+
 interface AppContextType {
   verifierName: string | null;
   pendingCount: number;
@@ -170,6 +190,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [correctSerialNumber, setCorrectSerialNumber] = useState("");
   const [installationDate, setInstallationDate] = useState("");
+  const [failedUpdates, setFailedUpdates] = useState<FailedUpdate[]>([]);
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
@@ -226,6 +247,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [allPendingRows, currentRowIndex]
   );
 
+  const [dkmDataCache, setDkmDataCache] = useState<Map<string, DkmData>>(
+    new Map()
+  );
+
+  const prefetchDetailsForRow = useCallback(
+    async (row: SheetRow) => {
+      try {
+        const headerRow = row.headerRow;
+        if (!headerRow) return;
+        const npsnCol = headerRow.indexOf("NPSN");
+        let rawNpsn = String(row.rowData[npsnCol]);
+        if (!rawNpsn) return;
+
+        if (dkmDataCache.has(rawNpsn)) return;
+
+        const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
+        const cookie = localStorage.getItem("hisense_cookie");
+        if (!cookie) return;
+
+        const response = await fetch("/api/combined", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
+        });
+
+        if (!response.ok) return;
+
+        const data: DkmData = await response.json();
+        setDkmDataCache((prevCache) => new Map(prevCache).set(rawNpsn, data));
+      } catch (err) {
+        console.error("Prefetch failed:", err);
+      }
+    },
+    [dkmDataCache]
+  );
+
   const fetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
       try {
@@ -248,6 +305,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const npsnCol = headerRow.indexOf("NPSN");
         let rawNpsn = String(row.rowData[npsnCol]);
         if (!rawNpsn) throw new Error("NPSN tidak ditemukan di baris ini.");
+
+        if (dkmDataCache.has(rawNpsn)) {
+          const data = dkmDataCache.get(rawNpsn)!;
+          setDkmData(data);
+          setEvaluationForm(defaultEvaluationValues);
+          setCorrectSerialNumber(
+            data.hisense.schoolInfo?.["Serial Number"] || ""
+          );
+          const instalasiSelesai = data.hisense.processHistory?.find(
+            (h) => h.status === "INSTALASI SELESAI"
+          );
+          if (instalasiSelesai && instalasiSelesai.tanggal) {
+            const datePart = instalasiSelesai.tanggal.split(" ")[0];
+            setInstallationDate(datePart);
+          }
+          setIsFetchingDetails(false);
+          return;
+        }
 
         const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
 
@@ -277,6 +352,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         const data: DkmData = await response.json();
+        setDkmDataCache((prevCache) => new Map(prevCache).set(rawNpsn, data));
 
         if (!data.hisense.isGreen) {
           handleSkip(false);
@@ -303,7 +379,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsFetchingDetails(false);
       }
     },
-    [handleSkip]
+    [handleSkip, dkmDataCache]
   );
 
   useEffect(() => {
@@ -377,10 +453,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (allPendingRows.length > 0 && currentRowIndex < allPendingRows.length) {
       const currentRow = allPendingRows[currentRowIndex];
       fetchDetailsForRow(currentRow);
+
+      const nextIndex = currentRowIndex + 1;
+      if (nextIndex < allPendingRows.length) {
+        const nextRow = allPendingRows[nextIndex];
+        prefetchDetailsForRow(nextRow);
+      }
     } else if (allPendingRows.length === 0 && !isLoading) {
       setDkmData(null);
     }
-  }, [currentRowIndex, allPendingRows, fetchDetailsForRow, isLoading]);
+  }, [
+    currentRowIndex,
+    allPendingRows,
+    fetchDetailsForRow,
+    prefetchDetailsForRow,
+    isLoading,
+  ]);
 
   const generateRejectionMessage = useCallback(() => {
     const rejectionReasons: { [key: string]: string } = {
@@ -469,6 +557,106 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCustomReason(generateRejectionMessage());
   }, [generateRejectionMessage]);
 
+  const executePostUpdate = useCallback(async (payload: UpdatePayload) => {
+    const {
+      action,
+      dkmDataForUpdate,
+      customReasonForUpdate,
+      evaluationFormForUpdate,
+      correctSerialNumberForUpdate,
+      installationDateForUpdate,
+      cookieForUpdate,
+      currentRowForUpdate,
+      rejectionMessage,
+    } = payload;
+
+    let hisensePath = "r_dkm_apr_p.php?";
+    const params: Record<string, string> = {
+      q: dkmDataForUpdate.hisense.q || "",
+      s: "",
+      v: "",
+      npsn: dkmDataForUpdate.hisense.npsn || "",
+      iprop: dkmDataForUpdate.hisense.iprop || "",
+      ikab: dkmDataForUpdate.hisense.ikab || "",
+      ikec: dkmDataForUpdate.hisense.ikec || "",
+      iins: dkmDataForUpdate.hisense.iins || "",
+      ijenjang: dkmDataForUpdate.hisense.ijenjang || "",
+      ibp: dkmDataForUpdate.hisense.ibp || "",
+      iss: dkmDataForUpdate.hisense.iss || "",
+      isf: dkmDataForUpdate.hisense.isf || "",
+      istt: dkmDataForUpdate.hisense.istt || "",
+      itgl: dkmDataForUpdate.hisense.itgl || "",
+      itgla: dkmDataForUpdate.hisense.itgla || "",
+      itgle: dkmDataForUpdate.hisense.itgle || "",
+      ipet: dkmDataForUpdate.hisense.ipet || "",
+      ihnd: dkmDataForUpdate.hisense.ihnd || "",
+    };
+
+    if (action === "terima") {
+      params.s = "A";
+    } else if (action === "tolak") {
+      params.s = "R";
+      params.v = customReasonForUpdate;
+    }
+
+    const hisenseQueryString = new URLSearchParams(params).toString();
+    hisensePath += hisenseQueryString;
+
+    const updates: Record<string, string | number | undefined> = {
+      ...evaluationFormForUpdate,
+    };
+
+    if (
+      installationDateForUpdate &&
+      !customReasonForUpdate.includes("Tanggal Tidak Konsisten")
+    ) {
+      const [year, month, day] = installationDateForUpdate.split("-");
+      updates["Z"] = `${day}/${month}/${year}`;
+    }
+
+    if (
+      correctSerialNumberForUpdate &&
+      correctSerialNumberForUpdate !==
+        dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
+    ) {
+      updates["I"] = correctSerialNumberForUpdate;
+    }
+
+    const [hisenseRes, res] = await Promise.all([
+      fetch("/api/hisense", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: hisensePath,
+          cookie: cookieForUpdate,
+        }),
+      }),
+      fetch("/api/sheets/batch-update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update",
+          sheetId: process.env.NEXT_PUBLIC_SHEET_ID,
+          rowIndex: currentRowForUpdate.rowIndex,
+          updates,
+          customReason:
+            customReasonForUpdate &&
+            customReasonForUpdate != rejectionMessage
+              ? customReasonForUpdate
+              : null,
+        }),
+      }),
+    ]);
+
+    if (!hisenseRes.ok || !res.ok) {
+      const hisenseError = hisenseRes.ok ? "" : await hisenseRes.text();
+      const sheetsError = res.ok ? "" : (await res.json()).details;
+      throw new Error(
+        `Hisense: ${hisenseError} | Sheets: ${sheetsError}`.trim()
+      );
+    }
+  }, []);
+
   const updateSheetAndProceed = useCallback(
     async (action: "terima" | "tolak") => {
       try {
@@ -484,103 +672,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsSubmitting(true);
       setError(null);
       try {
-        if (allPendingRows.length === 0 || !dkmData)
+        if (allPendingRows.length === 0 || !dkmData) {
           throw new Error("Tidak ada data untuk diupdate.");
+        }
 
         const cookie = localStorage.getItem("hisense_cookie");
-        if (!cookie) throw new Error("Cookie Hisense tidak ditemukan.");
+        if (!cookie) {
+          throw new Error("Cookie Hisense tidak ditemukan.");
+        }
 
         const validName = await validateHisenseCookie(cookie);
         if (!validName) {
           setCookieValid(false);
           setVerifierName(null);
           setShowLoginModal(true);
-          setIsSubmitting(false);
           setError("Cookie Hisense kadaluarsa atau tidak valid.");
           return;
         }
 
-        let hisensePath = "r_dkm_apr_p.php?";
-        const params: Record<string, string> = {
-          q: dkmData.hisense.q || "",
-          s: "",
-          v: "",
-          npsn: dkmData.hisense.npsn || "",
-          iprop: dkmData.hisense.iprop || "",
-          ikab: dkmData.hisense.ikab || "",
-          ikec: dkmData.hisense.ikec || "",
-          iins: dkmData.hisense.iins || "",
-          ijenjang: dkmData.hisense.ijenjang || "",
-          ibp: dkmData.hisense.ibp || "",
-          iss: dkmData.hisense.iss || "",
-          isf: dkmData.hisense.isf || "",
-          istt: dkmData.hisense.istt || "",
-          itgl: dkmData.hisense.itgl || "",
-          itgla: dkmData.hisense.itgla || "",
-          itgle: dkmData.hisense.itgle || "",
-          ipet: dkmData.hisense.ipet || "",
-          ihnd: dkmData.hisense.ihnd || "",
+        const payload: UpdatePayload = {
+          action,
+          currentRowForUpdate: allPendingRows[currentRowIndex],
+          dkmDataForUpdate: { ...dkmData },
+          evaluationFormForUpdate: { ...evaluationForm },
+          customReasonForUpdate: customReason,
+          correctSerialNumberForUpdate: correctSerialNumber,
+          installationDateForUpdate: installationDate,
+          cookieForUpdate: cookie,
+          rejectionMessage: generateRejectionMessage(),
         };
-
-        if (action === "terima") {
-          params.s = "A";
-        } else if (action === "tolak") {
-          params.s = "R";
-          params.v = customReason;
-        }
-
-        const hisenseQueryString = new URLSearchParams(params).toString();
-        hisensePath += hisenseQueryString;
-
-        const hisenseRes = await fetch("/api/hisense", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path: hisensePath, cookie }),
-        });
-
-        if (!hisenseRes.ok) {
-          throw new Error(`Gagal update Hisense: ${await hisenseRes.text()}`);
-        }
-
-        const currentRow = allPendingRows[currentRowIndex];
-        const updates: Record<string, string | number | undefined> = {
-          ...evaluationForm,
-        };
-
-        if (
-          installationDate &&
-          !customReason.includes("Tanggal Tidak Konsisten")
-        ) {
-          const [year, month, day] = installationDate.split("-");
-          updates["Z"] = `${day}/${month}/${year}`;
-        }
-
-        if (
-          correctSerialNumber &&
-          correctSerialNumber !== dkmData.hisense.schoolInfo?.["Serial Number"]
-        ) {
-          updates["I"] = correctSerialNumber;
-        }
-
-        const res = await fetch("/api/sheets/batch-update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update",
-            sheetId: process.env.NEXT_PUBLIC_SHEET_ID,
-            rowIndex: currentRow.rowIndex,
-            updates,
-            customReason:
-              customReason && customReason != generateRejectionMessage()
-                ? customReason
-                : null,
-          }),
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.details || "Gagal batch update sheet.");
-        }
 
         const newRows = allPendingRows.filter(
           (_, index) => index !== currentRowIndex
@@ -592,6 +712,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         setCorrectSerialNumber("");
         setInstallationDate("");
+
+        executePostUpdate(payload).catch((err) => {
+          setFailedUpdates((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              payload,
+              error: err.message,
+              schoolName:
+                payload.dkmDataForUpdate.hisense.schoolInfo?.Nama ||
+                "Nama Sekolah Tidak Ditemukan",
+            },
+          ]);
+        });
       } catch (err: unknown) {
         if (err instanceof Error) setError(err.message);
         else setError("An unknown error occurred in updateSheetAndProceed.");
@@ -608,9 +742,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       correctSerialNumber,
       installationDate,
       generateRejectionMessage,
+      executePostUpdate,
       router,
     ]
   );
+
+  const retryAllFailed = useCallback(async () => {
+    const updatesToRetry = [...failedUpdates];
+    const stillFailing: FailedUpdate[] = [];
+    setIsSubmitting(true);
+
+    for (const update of updatesToRetry) {
+      try {
+        await executePostUpdate(update.payload);
+      } catch (err: unknown) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown retry error";
+        stillFailing.push({ ...update, error: errorMessage });
+      }
+    }
+
+    setFailedUpdates(stillFailing);
+    setIsSubmitting(false);
+  }, [failedUpdates, executePostUpdate]);
 
   const handleTerima = useCallback(
     () => updateSheetAndProceed("terima"),
@@ -709,6 +863,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           className="md:hidden fixed inset-0 bg-black/50 z-20"
         />
       )}
+      <FailedUpdatesModal
+        isOpen={failedUpdates.length > 0}
+        failures={failedUpdates}
+        onRetry={retryAllFailed}
+        onClose={() => setFailedUpdates([])}
+      />
     </AppContext.Provider>
   );
 }
