@@ -8,6 +8,7 @@ import React, {
   ReactNode,
   useCallback,
 } from "react";
+import { useRouter } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
 import { validateHisenseCookie } from "@/helpers/HisenseCookie";
 
@@ -149,6 +150,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { data: session, status: sessionStatus } = useSession();
   const [verifierName, setVerifierName] = useState<string | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -226,6 +228,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const fetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
+      try {
+        const res = await fetch("https://api.npoint.io/17f9cae69558688882bc");
+        const data = await res.json();
+        if (data.isCutOff) {
+          router.push("/cutoff");
+          return;
+        }
+      } catch (e) {
+        // ignore, if npoint is down, we can still proceed
+      }
       if (!row) return;
       setIsFetchingDetails(true);
       setDkmData(null);
@@ -305,6 +317,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
       setAllPendingRows([]);
+      try {
+        const res = await fetch("https://api.npoint.io/17f9cae69558688882bc");
+        const data = await res.json();
+        if (data.isCutOff) {
+          router.push("/cutoff");
+          return;
+        }
+      } catch (e) {
+        // ignore, if npoint is down, we can still proceed
+      }
       try {
         const res = await fetch("/api/sheets");
         if (!res.ok)
@@ -449,6 +471,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateSheetAndProceed = useCallback(
     async (action: "terima" | "tolak") => {
+      try {
+        const res = await fetch("https://api.npoint.io/17f9cae69558688882bc");
+        const data = await res.json();
+        if (data.isCutOff) {
+          router.push("/cutoff");
+          return;
+        }
+      } catch (e) {
+        // ignore, if npoint is down, we can still proceed
+      }
       setIsSubmitting(true);
       setError(null);
       try {
@@ -576,6 +608,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       correctSerialNumber,
       installationDate,
       generateRejectionMessage,
+      router,
     ]
   );
 
