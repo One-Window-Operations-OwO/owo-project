@@ -184,7 +184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [evaluationForm, setEvaluationForm] = useState<Record<string, string>>(
-    defaultEvaluationValues
+    defaultEvaluationValues,
   );
   const [customReason, setCustomReason] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -234,7 +234,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error(error);
       } finally {
         const newRows = allPendingRows.filter(
-          (_, index) => index !== currentRowIndex
+          (_, index) => index !== currentRowIndex,
         );
         setAllPendingRows([...newRows, currentRow]);
         if (currentRowIndex >= newRows.length && newRows.length > 0) {
@@ -244,11 +244,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setInstallationDate("");
       }
     },
-    [allPendingRows, currentRowIndex]
+    [allPendingRows, currentRowIndex],
   );
 
   const [dkmDataCache, setDkmDataCache] = useState<Map<string, DkmData>>(
-    new Map()
+    new Map(),
   );
 
   const prefetchDetailsForRow = useCallback(
@@ -276,11 +276,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const data: DkmData = await response.json();
         setDkmDataCache((prevCache) => new Map(prevCache).set(rawNpsn, data));
+
+        if (data.hisense.images) {
+          Object.values(data.hisense.images).forEach((imageUrl) => {
+            if (typeof imageUrl === "string" && imageUrl) {
+              const img = new Image();
+              img.src = imageUrl;
+            }
+          });
+        }
       } catch (err) {
         console.error("Prefetch failed:", err);
       }
     },
-    [dkmDataCache]
+    [dkmDataCache],
   );
 
   const fetchDetailsForRow = useCallback(
@@ -311,10 +320,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setDkmData(data);
           setEvaluationForm(defaultEvaluationValues);
           setCorrectSerialNumber(
-            data.hisense.schoolInfo?.["Serial Number"] || ""
+            data.hisense.schoolInfo?.["Serial Number"] || "",
           );
           const instalasiSelesai = data.hisense.processHistory?.find(
-            (h) => h.status === "INSTALASI SELESAI"
+            (h) => h.status === "INSTALASI SELESAI",
           );
           if (instalasiSelesai && instalasiSelesai.tanggal) {
             const datePart = instalasiSelesai.tanggal.split(" ")[0];
@@ -347,7 +356,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (!response.ok) {
           throw new Error(
-            `Gagal mengambil data dari API eksternal. Status: ${response.status}`
+            `Gagal mengambil data dari API eksternal. Status: ${response.status}`,
           );
         }
 
@@ -363,10 +372,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setDkmData(data);
         setEvaluationForm(defaultEvaluationValues);
         setCorrectSerialNumber(
-          data.hisense.schoolInfo?.["Serial Number"] || ""
+          data.hisense.schoolInfo?.["Serial Number"] || "",
         );
         const instalasiSelesai = data.hisense.processHistory?.find(
-          (h) => h.status === "INSTALASI SELESAI"
+          (h) => h.status === "INSTALASI SELESAI",
         );
         if (instalasiSelesai && instalasiSelesai.tanggal) {
           const datePart = instalasiSelesai.tanggal.split(" ")[0];
@@ -379,7 +388,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsFetchingDetails(false);
       }
     },
-    [handleSkip, dkmDataCache]
+    [handleSkip, dkmDataCache],
   );
 
   useEffect(() => {
@@ -420,7 +429,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (verifikatorCol === -1 || statusCol === -1) {
           throw new Error(
-            "Kolom VERIFIKATOR atau STATUS tidak ditemukan di Sheet."
+            "Kolom VERIFIKATOR atau STATUS tidak ditemukan di Sheet.",
           );
         }
 
@@ -430,7 +439,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             (item: SheetRow) =>
               item.rowData[verifikatorCol] === verifierName &&
               (!item.rowData[statusCol] ||
-                String(item.rowData[statusCol]).trim() === "")
+                String(item.rowData[statusCol]).trim() === ""),
           );
 
         const rowsWithHeader = filtered.map((row: SheetRow) => ({
@@ -532,7 +541,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .filter(([key, value]) => {
         const isDefault = defaultEvaluationValues[key] === value;
         const isSpecificReject = Object.keys(
-          specificReasons[key] || {}
+          specificReasons[key] || {},
         ).includes(value);
         return !isDefault || isSpecificReject;
       })
@@ -640,8 +649,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           rowIndex: currentRowForUpdate.rowIndex,
           updates,
           customReason:
-            customReasonForUpdate &&
-            customReasonForUpdate != rejectionMessage
+            customReasonForUpdate && customReasonForUpdate != rejectionMessage
               ? customReasonForUpdate
               : null,
         }),
@@ -652,7 +660,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const hisenseError = hisenseRes.ok ? "" : await hisenseRes.text();
       const sheetsError = res.ok ? "" : (await res.json()).details;
       throw new Error(
-        `Hisense: ${hisenseError} | Sheets: ${sheetsError}`.trim()
+        `Hisense: ${hisenseError} | Sheets: ${sheetsError}`.trim(),
       );
     }
   }, []);
@@ -703,7 +711,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
 
         const newRows = allPendingRows.filter(
-          (_, index) => index !== currentRowIndex
+          (_, index) => index !== currentRowIndex,
         );
         setAllPendingRows(newRows);
 
@@ -744,7 +752,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       generateRejectionMessage,
       executePostUpdate,
       router,
-    ]
+    ],
   );
 
   const retryAllFailed = useCallback(async () => {
@@ -768,11 +776,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const handleTerima = useCallback(
     () => updateSheetAndProceed("terima"),
-    [updateSheetAndProceed]
+    [updateSheetAndProceed],
   );
   const handleTolak = useCallback(
     () => updateSheetAndProceed("tolak"),
-    [updateSheetAndProceed]
+    [updateSheetAndProceed],
   );
 
   const authenticate = useCallback(async () => {
@@ -879,3 +887,4 @@ export function useAppContext() {
     throw new Error("useAppContext must be used within an AppProvider");
   return context;
 }
+
