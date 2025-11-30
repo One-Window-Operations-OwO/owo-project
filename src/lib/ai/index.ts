@@ -39,11 +39,11 @@ TUGAS OCR
 3. Jangan menebak-nebak ataupun memprediksi berdasarkan expected jika teks tidak terlihat jelas.
 
 ATURAN KHUSUS NPSN
-1. NPSN dianggap valid hanya jika ditemukan teks eksplisit yang mengandung kata "NPSN" dan berisi 8 digit. Contoh valid: "NPSN : 12345678", "NPSN-1234", "Kode NPSN 1234".
+1. NPSN dianggap valid hanya jika ditemukan teks eksplisit yang mengandung kata "NPSN" dan berisi 8 digit. Angka apapun yang bukan 8 digit tidak dianggap npsn.
 2. Jika ditemukan NPSN:
    - Ambil hanya angkanya.
    - Bandingkan secara ketat (harus identik 100%).
-   - Beda 1 digit pun dianggap mismatch berat.
+   - Beda 1 digit pun dianggap mismatch berat dan langsung beri result "FOTO PAPAN NAMA tidak sesuai".
 3. Jika plang TIDAK berisi teks "NPSN":
    - Isi "npsn": "" (string kosong).
    - Hal ini TIDAK dianggap salah.
@@ -76,8 +76,8 @@ export function buildPromptSerial(opts: {
   const { expectedSerialNumber } = opts;
 
   return  `
-JANGAN RESPOND DALAM BLOCK CODE (\\\`\\\`\\\`), JANGAN GUNAKAN MARKDOWN.
-Balas dalam TEXT BIASA tetapi ISINYA mengikuti FORMAT JSON berikut:
+DO NOT RESPOND IN CODE BLOCKS (\`\`\`). DO NOT USE MARKDOWN.
+Respond in PLAIN TEXT but FOLLOW the JSON FORMAT below:
 
 {
   "code": "OK / failed",
@@ -99,28 +99,29 @@ Balas dalam TEXT BIASA tetapi ISINYA mengikuti FORMAT JSON berikut:
   "message": "..."
 }
 
-DATA SERIAL NUMBER YANG BENAR:
+CORRECT SERIAL NUMBER DATA:
 - Serial Number: ${expectedSerialNumber || "-"}
 
-TUGAS:
-1. OCR seluruh teks dalam foto.
-2. Temukan serial number utama (angka panjang di BAWAH barcode).
-   Abaikan angka kecil di atas barcode.
-3. Jika menemukan detected or expected "O" atau "VV" turunkan  similarity ke 75% namun result tetap bisa "ok" jika karakter sesuai.
-3. Bandingkan hasil OCR dengan serial number yang benar (SEMUA HARUS PERSIS (namun abaikan kapital), "jika ada perbedaan 1 karakter pun maka result = FOTO SERIAL NUMBER tidak sesuai").
-4. Hanya beri FAILED jika:
-   - Foto tidak terlihat (buram/tidak fokus), JANGAN COBA MENEBAK, jika gambar tidak terbaca jelas sedikitpun, anggap tidak terlihat dan beri result "FOTO SERIAL NUMBER tidak terlihat".
-   - foto bukan SN sama sekali (foto random), atau
-   - serial number terlihat tapi ada perbedaan (walau hanya 1 karakter pun).
-5. "message" = kesimpulan singkat (beri reminder jika menemukan "O" atau "VV").
-6. result harus berisi "ok" tanpa kapital jika gambar sesuai.
+TASK:
+1. Perform OCR on all text in the image.
+2. Identify the MAIN serial number (the long number BELOW the barcode). Ignore the smaller numbers above the barcode.
+3. There is NO “O” or “VV” in a serial number. It should be “0” (zero) and “W”. If you detect “O” or “VV”, treat this as an OCR error and interpret it as “0” and “W”.
+4. If the expected serial number contains “O” or “VV”, return result “FOTO SERIAL NUMBER tidak sesuai”.
+5. Compare the OCR output with the correct serial number. It MUST MATCH EXACTLY (case-insensitive). If even one character differs, result = “FOTO SERIAL NUMBER tidak sesuai”.
+6. Return FAILED ONLY if:
+   - The photo is unreadable (blurry / out of focus). DO NOT TRY TO GUESS. If the image is even slightly unclear, treat it as unreadable and return “FOTO SERIAL NUMBER tidak terlihat”.
+   - The image is not a serial number photo (random image), or
+   - The serial number is visible but has ANY difference (even 1 character).
+7. "message" = a short summary (add a reminder if “O” or “VV” is detected).
+8. result must be exactly “ok” (lowercase) if the image matches perfectly.
 
-PENTING:
-- Jangan menambahkan komentar apa pun.
-- Jangan menggunakan markdown.
-- Jangan mengubah struktur JSON.
-- Output harus TEXT biasa.
-`;}
+IMPORTANT:
+- Do not add any comments.
+- Do not use markdown.
+- Do not modify the JSON structure.
+- Output must be plain TEXT.
+`;
+}
 
 export function buildPromptBapp1(opts: {
   expectedSchoolName?: string;
@@ -134,7 +135,6 @@ Balas dalam TEXT BIASA tetapi ISINYA mengikuti FORMAT JSON berikut:
 
 {
   "code": "OK / failed",
-  "similarity": 0-100,
   "detected": {
     "school_name": "...",
     "npsn": "...",
@@ -165,7 +165,6 @@ TUGAS:
    - NPSN (diatas kanan juga, di bawah barcode)
 
 PENILAIAN:
-- similarity dihitung dari kemiripan NAMA SEKOLAH dan NPSN.
 - Jika nama sekolah DAN npsn sesuai → code = "OK" dan result = "ok"
 - jika semua sesuai maka wajib memberikan result "ok" tanpa kapital atau tambahan kata.
 - Jika salah satu berbeda → result = "FOTO BAPP HAL 1 tidak sesuai".
@@ -181,103 +180,75 @@ PENTING:
 - Jangan gunakan markdown.
 - Jawab hanya TEXT biasa.
 `;}
-
 export function buildPromptBapp2(opts: {
   expectedSchoolName?: string;
 }) {
   const { expectedSchoolName } = opts;
 
   return `
-JANGAN RESPOND DALAM BLOCK CODE (\\\`\\\`\\\`) DAN JANGAN GUNAKAN MARKDOWN.
-Balas dalam TEXT BIASA dan ikuti FORMAT JSON berikut (STRUKTUR HARUS SAMA):
+DO NOT RESPOND IN CODE BLOCKS AND DO NOT USE MARKDOWN.
+Respond in PLAIN TEXT and follow the JSON FORMAT below (STRUCTURE MUST REMAIN EXACTLY THE SAME):
 
 {
   "code": "OK / failed",
   "detected": {
-    "school_name": "",
     "training_participant": "",
     "hisense_signature_name": "",
-    "tanggal": "mm/dd/yyyy" 
+    "tanggal": "mm/dd/yyyy",
+    "media_pelatihan": "", ("Dalam Jaringan" / "Di Luar Jaringan" / "" )
+    "nama sekolah": ""
   },
   "expected": {
-    "school_name": ""
+    "school_name": "${expectedSchoolName || "-"}"
   },
   "suspected_differences": [],
-  "result": "ok" ATAU array berisi:
-  [
-    "Sekolah tidak sesuai"
-    "FOTO BAPP HAL 2 tidak jelas",
-    "Stempel tidak ada",
-    "ttd tidak ditemukan",
-    "peserta pelatihan tidak ada"
-  ],
+  "result": "ok" or [] containing "peserta pelatihan tidak ada" / "ttd tidak ditemukan" / "sekolah tidak sesuai" / "media pelatihan tidak sesuai",
   "message": ""
 }
 
-DATA YANG BENAR:
-expected.school_name = ${expectedSchoolName || "-"}
-
-PANDUAN LOKASI (BERDASARKAN FORMAT DOKUMEN BAPP HAL 2):
-
 training_participant:
-- Lokasinya di tabel bagian tengah dokumen.
-- Kolom “Nama Perwakilan Satuan Pendidikan yang Mengikuti Pelatihan”.
-- Jika tulisan berupa garis, dicoret, blur, samar, atau hanya sebagian huruf (MINIMAL ADA 3 HURUF, jika kurang maka anggap tidak ada) → training_participant = "".
-- jika tidak ada nama peserta pelatihan → tambahkan "peserta pelatihan tidak ada". ke result.
-
-school_name:
-- Lokasinya di area bawah kiri.
-- Tepat di atas nama & NIP Kepala Sekolah (Pihak Pertama).
-- Jika tidak terbaca karena coretan/blur → kosongkan field lalu tambahkan "FOTO BAPP HAL 2 tidak jelas" ke result.
-- Jika berbeda jauh dari expected.school_name → tambahkan "Sekolah tidak sesuai" ke result.
-- Jika hanya berbeda sedikit tetap berikan result "ok".
-- Typo kecil & singkatan (Jl vs Jalan, PG vs pagi, SDI vs SD Inpres) dianggap sama.
-- Variasi tambahan seperti "UPT", "UPTD" "Negeri", "Swasta", dll → tidak dianggap berbeda dan tetap berikan result "ok".
+- Located in the center table under the column "Nama Perwakilan Satuan Pendidikan yang Mengikuti Pelatihan".
+- Minimum 3 readable letters are required. If blurry, crossed, unclear → leave empty and add "peserta pelatihan tidak ada".
 
 hisense_signature_name:
-- Lokasi bawah kanan.
-- Tepat di bawah tanda tangan pihak Hisense.
-- Jika tulisan berupa garis, dicoret, blur, samar, atau hanya sebagian huruf (MINIMAL ADA 3 HURUF, jika kurang maka anggap tidak ada) → hisense_signature_name = "".
-- Jika hanya terlihat huruf acak (“H”, “Z”, “S”) atau serpihan tanda tangan → hisense_signature_name = "".
-- Jika tidak terbaca jelas → tambahkan "ttd tidak ditemukan" ke result.
+- Located bottom-right, directly under the Hisense representative signature.
+- If the writing is only lines, scratches, blurry, unclear, or fewer than 3 letters → empty + add "ttd tidak ditemukan".
+- If random fragments of letters appear → empty + add "ttd tidak ditemukan".
+- If a name exists but no actual signature → empty + add "ttd tidak ditemukan".
 
-stempel :
-- Lokasi di bawah kanan (di tanda tangan sekolah).
-- Jika nama sekolah stempel berbeda sedikit atau tidak terbaca maka toleransi saja (nama sekolah yang diperiksa hanya yang diatas ttd).
-- Jika stempel tidak ada sama sekali → tambahkan "Stempel tidak ada" ke result.
-- beri result "Stempel tidak ada" hanya jika stempel benar-benar tidak ada.
+nama sekolah:
+- Located bottom-left above the school-side signature and stamp.
+- If the school name is clearly readable but significantly different from expected → add "sekolah tidak sesuai".
+- If slightly different, partially unclear, or minor typos → treat as ok.
+- Abbreviations or variations ("Jl", "Jalan", "PG", "pagi", "SDI", "SD Inpres", "UPT", "UPTD", "Negeri", "Swasta", etc.) should NOT be treated as different.
 
-tanda tangan : 
-- Lokasi di bawah kanan (di bawah Pihak kedua, Perwakilan PT Hisense Internasional...).
-- Jika tanda tangan buram, samar, atau hanya terlihat coretan garis acak → kosongkan field hisense_signature_name dan tambahkan "ttd tidak ditemukan" ke result.
-- Jika ada tanda tangan tapi tidak ada namanya → tambahkan "ttd tidak ditemukan" ke result.
-- Jika ada nama tapi tidak ada tanda tangan → kosongkan field hisense_signature_name dan tambahkan "ttd tidak ditemukan" ke result.
+signature rules:
+- Bottom-right (Hisense side). If signature appears blurry, faint, random strokes → hisense_signature_name empty + "ttd tidak ditemukan".
+
+media_pelatihan:
+- Located in the center table under “Media Pelatihan”.
+- STRICT RULE: The model is FORBIDDEN to read or use the text labels "Dalam Jaringan" and "Di Luar Jaringan". These texts are decorative and must be ignored.
+- Identification MUST be based ONLY on the CHECKBOX SQUARES.
+- The upper box is "Dalam Jaringan". The lower box is "Di Luar Jaringan".
+- Only marks INSIDE the checkbox count. Marks touching or near the text must be ignored.
+- If the "Di Luar Jaringan" checkbox contains any mark → media_pelatihan = "Di Luar Jaringan" → result ok.
+- If the "Dalam Jaringan" checkbox contains any mark → media_pelatihan = "Dalam Jaringan" → add "media pelatihan tidak sesuai".
+- If the “Dalam Jaringan” text has a mark but the checkbox is empty → IGNORE the mark → treat as unchecked.
+- If both checkboxes are empty, unclear, or have no valid mark → media_pelatihan = "" and result remains ok.
+- If both checkboxes show marks → media_pelatihan = "" and result ok.
 
 tanggal:
-- Lokasi bawah tengah pada teks “Ditetapkan di Kab…, tanggal XX [bulan] 2025”.
-- Hanya isi tanggal jika HARI + BULAN + TAHUN terbaca lengkap.
-- Jika bulan saja, atau bulan+tahun, atau format “11/xx/2025”, atau samar → HAPUS field tanggal sama sekali.
+- Only fill if day + month + year are fully readable.
+- If any part missing → remove the "tanggal" field.
 
-ATURAN ANTI-PREDIKSI:
-- Jika teks buram, tertutup coretan, atau terlalu samar → wajib dianggap TIDAK TERBACA.
-- DILARANG menebak teks.
-- Jika ragu sedikit saja → kosongkan field.
-- Jika training_participant tidak terbaca → tambahkan "peserta pelatihan tidak ada" ke result.
-- Jika hisense_signature_name tidak terbaca → tambahkan "ttd tidak ditemukan" ke result.
-- Jika stempel tidak ada sama sekali → tambahkan "Stempel tidak ada" ke result.
-- Jika banyak elemen tidak terbaca → tambahkan "FOTO BAPP HAL 2 tidak jelas" ke result.
+ANTI-PREDICTION RULES:
+- If text is blurry, faint, or uncertain → treat as unreadable.
+- Absolutely no guessing.
 
-ATURAN VALIDASI:
-- Jika school_name berbeda JAUH dari expected → tambahkan "Sekolah tidak sesuai" ke result.
-- Jika semua data sesuai (atau nama sekolah berbeda sedikit) → result = "ok".
-
-ATURAN RESPONSE:
-- Message berisi kesimpulan singkat hasil evaluasi.
-- Jangan membuat field baru.
-- Jangan mengubah nama field.
-- Jangan menebak teks.
-- JSON harus valid.
-- Respons HARUS berupa TEXT BIASA TANPA MARKDOWN.
-
+RESPONSE RULES:
+- If any issue exists → result becomes an array.
+- If all valid → result = "ok".
+- Message must contain a short summary.
+- No new fields, no renamed fields. JSON must be valid.
 `;
 }

@@ -238,6 +238,14 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     a.trim().toLowerCase() === b.trim().toLowerCase();
 
   useEffect(() => {
+    setAiResultPlang(null);
+    setAiResultSN(null);
+    setAiResultBapp1(null);
+    setAiResultBapp2(null);
+    aiHasRun.current = false;
+  }, [data]);
+
+  useEffect(() => {
     for (const item of processHistory) {
       if (/DATA DITOLAK/.test(item.status || "")) {
         setIsProsesOpen(true);
@@ -305,6 +313,9 @@ export default function DkmDetails({ data }: { data: DkmData }) {
   useEffect(() => {
     setImageRotation(0);
   }, [currentImageIndex]);
+  useEffect(() => {
+    aiHasRun.current = false;
+  }, [imageList]);
 
   useEffect(() => {
     if (aiHasRun.current) return;
@@ -378,6 +389,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               imageIndex: 7,
+              expectedSchoolName: schoolInfo.Nama,
               imageUrl: imageList[7],
             }),
           })
@@ -391,19 +403,26 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     };
 
     runAllAI();
-  }, [imageList, schoolInfo]);
+  }, [imageList]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (currentImageIndex === null) return;
 
       const active = document.activeElement;
+      if (e.key === "f") {
+        e.preventDefault();
+        setCurrentImageIndex(null);
+      }
       if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
-        if (e.key === "Escape") setCurrentImageIndex(null);
+        if (e.key === "Escape" || e.key === "Space") setCurrentImageIndex(null);
         return;
       }
-
-      if (e.key === "Escape") setCurrentImageIndex(null);
+      if (e.key === "f") {
+        e.preventDefault();
+        setCurrentImageIndex(null);
+      }
+      if (e.key === "Escape" || e.key === "Space") setCurrentImageIndex(null);
       if (e.key === "ArrowRight" || e.key.toLowerCase() === "d")
         setCurrentImageIndex((p) => (p! + 1) % imageList.length);
       if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a")
@@ -418,14 +437,6 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [currentImageIndex, imageList.length]);
-
-  useEffect(() => {
-    setAiResultPlang(null);
-    setAiResultSN(null);
-    setAiResultBapp1(null);
-    setAiResultBapp2(null);
-    aiHasRun.current = false;
-  }, [data]);
 
   useEffect(() => {
     if (aiResultBapp1?.autoEvaluation) {

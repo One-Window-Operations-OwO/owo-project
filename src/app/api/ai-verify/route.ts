@@ -134,8 +134,8 @@ const {
         parsed.autoEvaluation = { N: "Tidak Sesuai" };
       }
       parsed.correctedValues = {
-        serial_number: parsed.detected?.serial_number || "",
-      }; 
+      serial_number: (parsed.detected?.serial_number || "").replace(/\s+/g, "")
+      };
       break;}
     case 6:{
       if (parsed.result === "ok") {
@@ -161,13 +161,15 @@ const {
           autoEval.U = "BAPP Tidak Jelas";
         }
 
-        if (result.includes("Stempel tidak ada")) {
-          autoEval.T = "Tidak Ada";
-        }
-        if (result.includes("Sekolah tidak sesuai")) {
+        // if (result.includes("Stempel tidak ada")) {
+        //   autoEval.T = "Tidak Ada";
+        // }
+        if (result.includes("sekolah tidak sesuai")) {
           autoEval.T = "Tidak Sesuai";
         }
-
+        if(result.includes("media pelatihan tidak sesuai")){
+          autoEval.V = "Media Pelatihan"
+        }
         if (result.includes("ttd tidak ditemukan")) {
           autoEval.S = "TTD Tidak Ada";
         }
