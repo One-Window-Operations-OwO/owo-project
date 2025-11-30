@@ -1,6 +1,7 @@
 "use client";
 
 import { useAppContext } from "@/context/AppProvider";
+import Spinner from "./Spinner";
 
 const defaultEvaluationValues: Record<string, string> = {
   J: "Sesuai",
@@ -192,16 +193,20 @@ export default function Sidebar() {
           <button
             onClick={() => handleSkip(true)}
             disabled={buttonsDisabled}
-            className="flex-1 p-3 bg-gray-500 rounded-md text-white font-bold hover:bg-gray-400 disabled:opacity-50 transition-colors"
+            className={`flex-1 p-3 bg-gray-500 rounded-md text-white font-bold hover:bg-gray-400 disabled:opacity-50 transition-colors ${
+              isSubmitting ? "animate-pulse" : ""
+            }`}
           >
-            SKIP
+            {isSubmitting ? <Spinner /> : "SKIP"}
           </button>
           <button
             onClick={mainButtonAction}
             disabled={mainButtonDisabled}
-            className={`flex-1 p-3 rounded-md text-white font-bold disabled:opacity-50 transition-colors ${mainButtonColor}`}
+            className={`flex-1 p-3 rounded-md text-white font-bold disabled:opacity-50 transition-colors ${mainButtonColor} ${
+              isSubmitting ? "animate-pulse" : ""
+            }`}
           >
-            {mainButtonLabel}
+            {isSubmitting ? <Spinner /> : mainButtonLabel}
           </button>
         </div>
       </div>
