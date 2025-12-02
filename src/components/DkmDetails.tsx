@@ -410,17 +410,13 @@ export default function DkmDetails({ data }: { data: DkmData }) {
       if (currentImageIndex === null) return;
 
       const active = document.activeElement;
-      if (e.key === "f") {
+      if (e.key === "F") {
         e.preventDefault();
         setCurrentImageIndex(null);
       }
       if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
         if (e.key === "Escape" || e.key === "Space") setCurrentImageIndex(null);
         return;
-      }
-      if (e.key === "f") {
-        e.preventDefault();
-        setCurrentImageIndex(null);
       }
       if (e.key === "Escape" || e.key === "Space") setCurrentImageIndex(null);
       if (e.key === "ArrowRight" || e.key.toLowerCase() === "d")
