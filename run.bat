@@ -48,7 +48,8 @@ if %errorlevel% neq 0 (
 
 echo.
 echo [INFO] Menjalankan npm run dev...
-npm run dev
+cmd /k "npm run dev"
+
 if %errorlevel% neq 0 (
     echo [ERROR] npm run dev error.
     goto END
