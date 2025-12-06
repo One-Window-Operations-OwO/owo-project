@@ -229,7 +229,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     () => (hisense as HisenseData).processHistory || [],
     [hisense]
   );
-
+  const note = useMemo(() => (hisense as HisenseData).note || {}, [hisense]);
   const imageList = useMemo(() => Object.values(images), [images]);
 
   const cleanAndCompare = (a?: string, b?: string) =>
@@ -435,6 +435,30 @@ export default function DkmDetails({ data }: { data: DkmData }) {
   }, [currentImageIndex, imageList.length]);
 
   useEffect(() => {
+    setAiResultPlang(null);
+    setAiResultSN(null);
+    setAiResultBapp1(null);
+    setAiResultBapp2(null);
+    aiHasRun.current = false;
+  }, [data]);
+  useEffect(() => {
+    const rawSN = schoolInfo["Serial Number"];
+
+    // Pastikan data SN ada sebelum mengecek
+    if (rawSN) {
+      // Hapus semua whitespace (spasi, tab, enter)
+      const cleanSN = String(rawSN).replace(/\s/g, "");
+
+      // Jika panjang tidak 23 karakter
+      if (cleanSN.length !== 23) {
+        setEvaluationForm((prev) => ({
+          ...prev,
+          N: "Tidak Sesuai",
+        }));
+      }
+    }
+  }, [schoolInfo, setEvaluationForm]);
+  useEffect(() => {
     if (aiResultBapp1?.autoEvaluation) {
       setEvaluationForm((prev) => ({
         ...prev,
@@ -539,7 +563,6 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               isMismatched={!!mismatches["Alamat"]}
             />
           </div>
-
           <div className="grid grid-cols-12 gap-4">
             <InfoField
               label="Provinsi"
@@ -590,7 +613,6 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               isMismatched={false}
             />
           </div>
-
           <div className="grid grid-cols-12 gap-4">
             <InfoField
               label="PIC"
@@ -623,6 +645,14 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               isMismatched={false}
             />
           </div>
+          {note["Catatan"]?.trim() !== "-" && note["Catatan"]?.trim() && (
+            <InfoField
+              label="CATATAN"
+              value={note["Catatan"]}
+              colSpan="col-span-4 md:col-span-1"
+              isMismatched={true}
+            />
+          )}
         </div>
 
         <div>

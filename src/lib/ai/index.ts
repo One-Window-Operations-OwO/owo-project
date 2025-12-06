@@ -102,18 +102,24 @@ Respond in PLAIN TEXT but FOLLOW the JSON FORMAT below:
 CORRECT SERIAL NUMBER DATA:
 - Serial Number: ${expectedSerialNumber || "-"}
 
-TASK:
-1. Perform OCR on all text in the image.
-2. Identify the MAIN serial number (the long number BELOW the barcode). Ignore the smaller numbers above the barcode.
-3. There is NO “O” or “VV” in a serial number. It should be “0” (zero) and “W”. If you detect “O” or “VV”, treat this as an OCR error and interpret it as “0” and “W”.
-4. If the expected serial number contains “O” or “VV”, return result “FOTO SERIAL NUMBER tidak sesuai”.
-5. Compare the OCR output with the correct serial number. It MUST MATCH EXACTLY (case-insensitive). If even one character differs, result = “FOTO SERIAL NUMBER tidak sesuai”.
-6. Return FAILED ONLY if:
-   - The photo is unreadable (blurry / out of focus). DO NOT TRY TO GUESS. If the image is even slightly unclear, treat it as unreadable and return “FOTO SERIAL NUMBER tidak terlihat”.
-   - The image is not a serial number photo (random image), or
-   - The serial number is visible but has ANY difference (even 1 character).
-7. "message" = a short summary (add a reminder if “O” or “VV” is detected).
-8. result must be exactly “ok” (lowercase) if the image matches perfectly.
+TUGAS:
+1. OCR seluruh teks dalam foto.
+2. Temukan serial number utama (angka panjang di BAWAH barcode).
+   Abaikan angka kecil di atas barcode.
+3. Jika menemukan detected or expected "O" atau "VV" turunkan  similarity ke 75% namun result tetap bisa "ok" jika karakter sesuai.
+3. Bandingkan hasil OCR dengan serial number yang benar (SEMUA HARUS PERSIS (namun abaikan kapital), "jika ada perbedaan 1 karakter pun maka result = FOTO SERIAL NUMBER tidak sesuai").
+4. Hanya beri FAILED jika:
+   - Foto tidak terlihat (buram/tidak fokus), JANGAN COBA MENEBAK, jika gambar tidak terbaca jelas sedikitpun, anggap tidak terlihat dan beri result "FOTO SERIAL NUMBER tidak terlihat".
+   - foto bukan SN sama sekali (foto random), atau
+   - serial number terlihat tapi ada perbedaan (walau hanya 1 karakter pun).
+5. "message" = kesimpulan singkat (beri reminder jika menemukan "O" atau "VV").
+6. result harus berisi "ok" tanpa kapital jika gambar sesuai.
+
+PERHATIKAN CONTOH SERIAL NUMBER:
+- Valid : "3TB75B2530160 18EJSJ3609", 3TB75B2530150 18ECSJ1542", "3TB75B25302R0 18EESJ0102"
+- Valid : "berisi 23 karakter tanpa spasi", "Sebagian Besar diawali dengan 3TB75B25..."
+- Invalid : "3TB75B25302S0 185EASJ2264", "3TB75B25302R02 18EESJ3869", "18EMSJ0143", "3T875B25303D0 1865SJ1899
+- Invalid : "tidak terdiri dari 23 karakter tanpa spasi", "tidak terlihat", "ada karakter diluar format alfanumerik"
 
 IMPORTANT:
 - Do not add any comments.
