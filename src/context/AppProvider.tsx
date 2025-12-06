@@ -92,6 +92,7 @@ export interface HisenseData {
   isGreen: boolean;
   nextPath?: string | null;
   schoolInfo?: HisenseSchoolInfo;
+  note?: Record<string, string>;
   images?: Record<string, string>;
   processHistory?: HisenseProcessHistory[];
   q?: string;
@@ -887,4 +888,3 @@ export function useAppContext() {
     throw new Error("useAppContext must be used within an AppProvider");
   return context;
 }
-

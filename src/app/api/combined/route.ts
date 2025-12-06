@@ -4,7 +4,7 @@ import * as cheerio from "cheerio";
 async function getDatadik(q: string) {
   const apiHeader = {
     "Content-Type": "application/x-www-form-urlencoded",
-    "cookie": process.env.DATADIK_COOKIE || "",
+    cookie: process.env.DATADIK_COOKIE || "",
   };
   const res1 = await fetch(
     "https://datadik.kemendikdasmen.go.id/refsp/q/173F3996-ED37-4D49-8487-534D0CE53421",
@@ -12,7 +12,7 @@ async function getDatadik(q: string) {
       method: "POST",
       headers: apiHeader,
       body: "q=" + encodeURIComponent(q || ""),
-    },
+    }
   );
 
   const data = await res1.json();
@@ -100,12 +100,30 @@ async function getHisense(npsn: string, cookie: string) {
 
   const images: { [key: string]: string } = {};
   $dkm("#flush-collapseTwo img").each((_, el) => {
-    const label = $dkm(el).closest(".card").find("label > b").text().trim();
+    const label = $dkm(el).closest(".card").find("label").text().trim();
     const src = $dkm(el).attr("src");
     if (label && src) images[label] = src;
   });
+  const note: { [key: string]: string } = {};
+  $dkm("#flush-collapseTwo #icttn").each((_, el) => {
+    const card = $dkm(el);
 
-  const processHistory: { tanggal: string; status: string; keterangan: string }[] = [];
+    const label = $dkm(el)
+      .closest(".col-md")
+      .find("label")
+      .first()
+      .text()
+      .trim();
+    const catatan = (card.val() ?? "").toString().trim();
+    if (label) note[label] = catatan;
+    console.log({ label, catatan });
+  });
+
+  const processHistory: {
+    tanggal: string;
+    status: string;
+    keterangan: string;
+  }[] = [];
   $dkm("#flush-collapseOne tbody tr").each((_, row) => {
     const columns = $dkm(row).find("td");
     processHistory.push({
@@ -118,6 +136,7 @@ async function getHisense(npsn: string, cookie: string) {
   const qs = new URLSearchParams(nextPath);
   const finalData = {
     schoolInfo,
+    note,
     images,
     processHistory,
     q: qs.get("q") || "",
@@ -161,7 +180,8 @@ export async function POST(req: Request) {
           : { error: hisense.reason.message },
     });
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+    const errorMessage =
+      err instanceof Error ? err.message : "An unknown error occurred";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
