@@ -115,8 +115,12 @@ async function getHisense(npsn: string, cookie: string) {
       .text()
       .trim();
     const catatan = (card.val() ?? "").toString().trim();
+    const buktiLink =
+      card.closest(".col-md").find(".form-group a").attr("onclick") || "";
+
     if (label) note[label] = catatan;
-    console.log({ label, catatan });
+    if (buktiLink.trim()) note["bukti"] = buktiLink;
+    console.log({ label, catatan, buktiLink });
   });
 
   const processHistory: {

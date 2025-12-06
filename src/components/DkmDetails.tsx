@@ -645,14 +645,6 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               isMismatched={false}
             />
           </div>
-          {note["Catatan"]?.trim() !== "-" && note["Catatan"]?.trim() && (
-            <InfoField
-              label="CATATAN"
-              value={note["Catatan"]}
-              colSpan="col-span-4 md:col-span-1"
-              isMismatched={true}
-            />
-          )}
         </div>
 
         <div>
@@ -703,6 +695,34 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {note["Catatan"]?.trim() !== "-" && note["Catatan"]?.trim() && (
+            <div className="py-3 mt-2">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
+                CATATAN
+              </label>
+
+              <input
+                type="text"
+                className={`w-full p-2 border rounded-md text-sm focus:outline-none text-gray-800 transition-colors bg-red-100 border-red-400 cursor-pointer`}
+                value={note["Catatan"]}
+                readOnly
+                onClick={() => {
+                  const bukti = note["bukti"] || "";
+
+                  // Regex ambil URL dari window.open('...')
+                  const match = bukti.match(/window\.open\('([^']+)'\)/);
+                  const url = match ? match[1] : null;
+
+                  if (url) {
+                    window.open(url, "_blank");
+                  } else {
+                    console.warn("URL bukti tidak ditemukan:", bukti);
+                  }
+                }}
+              />
             </div>
           )}
         </div>
