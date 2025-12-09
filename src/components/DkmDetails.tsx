@@ -837,7 +837,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
                 </div>
 
                 <div
-                  className="w-full h-full flex items-center justify-center"
+                  className="w-max h-max flex items-center justify-center"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <TransformComponent>

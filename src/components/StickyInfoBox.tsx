@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
-import type { DkmData, Ptk } from "@/context/AppProvider";
+import { useRef, useState, useMemo, useEffect } from "react";
+import type { DkmData, Ptk, DatadikData } from "@/context/AppProvider";
 import { useDraggable } from "@/hooks/useDraggable";
 import Fuse from "fuse.js";
+import Spinner from "./Spinner";
 
 interface StickyInfoBoxProps {
   formData: DkmData["hisense"]["schoolInfo"];
@@ -17,24 +18,98 @@ const cleanAndCompare = (val1?: string, val2?: string) => {
 };
 
 export default function StickyInfoBox({
-  formData,
-  apiData,
-  ptkList,
+  formData: initialFormData,
+  apiData: initialApiData,
+  ptkList: initialPtkList,
 }: StickyInfoBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null!);
   const { position, handleMouseDown } = useDraggable<HTMLDivElement>(
     boxRef,
-    "sticky-info-box"
+    "sticky-info-box",
   );
+
+  const [apiData, setApiData] = useState(initialApiData);
+  const [ptkList, setPtkList] = useState(initialPtkList);
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    setApiData(initialApiData);
+    setPtkList(initialPtkList);
+  }, [initialApiData, initialPtkList]);
+
+  const handleRefresh = async () => {
+    if (!initialFormData?.NPSN) return;
+    setIsRefreshing(true);
+
+    try {
+      const rawNpsn = initialFormData.NPSN;
+      const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
+      const cookie = localStorage.getItem("hisense_cookie");
+
+      if (!cookie) {
+        throw new Error("Cookie Hisense tidak ditemukan.");
+      }
+
+      const response = await fetch("/api/combined", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Gagal mengambil data. Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.datadik) {
+        setApiData(data.datadik);
+        setPtkList(data.datadik.ptk);
+      }
+    } catch (error: any) {
+      // Error handling is already happening implicitly by not updating state
+    } finally {
+      setIsRefreshing(false);
+      // Send a minimal log trigger to the server
+      await fetch("/api/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "triggered" }),
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      // Check if an input field or textarea is focused
+      const activeElement = document.activeElement;
+      const isInputFocused =
+        activeElement &&
+        (activeElement.tagName === "INPUT" ||
+          activeElement.tagName === "TEXTAREA");
+
+      if (event.key === "f" && !isInputFocused) {
+        event.preventDefault(); // Prevent default browser behavior for 'f' key
+        handleRefresh();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeydown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [handleRefresh]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Ptk[]>([]);
 
   const isAddressMatch =
-    !!formData &&
-    cleanAndCompare(formData.Alamat, apiData.address) &&
-    cleanAndCompare(formData.Kecamatan, apiData.kecamatan) &&
-    cleanAndCompare(formData.Kabupaten, apiData.kabupaten);
+    !!initialFormData &&
+    cleanAndCompare(initialFormData.Alamat, apiData?.address) &&
+    cleanAndCompare(initialFormData.Kecamatan, apiData?.kecamatan) &&
+    cleanAndCompare(initialFormData.Kabupaten, apiData?.kabupaten);
 
   const statusColor = isAddressMatch ? "#e8f5e9" : "#ffdddd";
   const borderColor = isAddressMatch ? "#66bb6a" : "#e57373";
@@ -62,6 +137,10 @@ export default function StickyInfoBox({
     setSearchResults(result.map((r) => r.item));
   };
 
+  if (!apiData) {
+    return null;
+  }
+
   return (
     <div
       ref={boxRef}
@@ -82,6 +161,9 @@ export default function StickyInfoBox({
         onMouseDown={handleMouseDown}
         onTouchStart={handleMouseDown}
         style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
           padding: "8px 18px",
           cursor: "move",
           borderBottom: `1px solid ${borderColor}`,
@@ -90,12 +172,40 @@ export default function StickyInfoBox({
           borderTopRightRadius: "6px",
         }}
       >
-        <div style={{ fontWeight: "bold", fontSize: "15px", color: "#0056b3" }}>
-          {formData?.Nama ?? ""}
+        <div>
+          <div
+            style={{ fontWeight: "bold", fontSize: "15px", color: "#0056b3" }}
+          >
+            {initialFormData?.Nama ?? ""}
+          </div>
+          <div style={{ fontSize: "12px", color: "#555" }}>
+            NPSN: {initialFormData?.NPSN ?? ""}
+          </div>
         </div>
-        <div style={{ fontSize: "12px", color: "#555" }}>
-          NPSN: {formData?.NPSN ?? ""}
-        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          title="Klik F bro"
+          style={{
+            padding: "4px 8px",
+            fontSize: "12px",
+            backgroundColor: isRefreshing ? "#ccc" : "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          {isRefreshing ? (
+            <Spinner size={14} />
+          ) : (
+            <img
+              src="/refresh.svg"
+              alt="Refresh"
+              style={{ width: "14px", height: "14px" }}
+            />
+          )}
+        </button>
       </div>
 
       <div style={{ padding: "12px 18px" }}>
@@ -103,7 +213,7 @@ export default function StickyInfoBox({
           Serial Number
         </div>
         <div style={{ fontSize: "16px", fontWeight: 600, color: "#000" }}>
-          {formData?.["Serial Number"]}
+          {initialFormData?.["Serial Number"]}
         </div>
 
         {/* ================= Alamat dari kedua sumber ================= */}
@@ -125,12 +235,12 @@ export default function StickyInfoBox({
             Alamat (Form & API)
           </div>
           <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
-            <b>Form:</b> {formData?.Alamat}, {formData?.Kecamatan},{" "}
-            {formData?.Kabupaten}
+            <b>Form:</b> {initialFormData?.Alamat}, {initialFormData?.Kecamatan},{" "}
+            {initialFormData?.Kabupaten}
           </div>
           <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
-            <b>API:</b> {apiData.address}, {apiData.kecamatan},{" "}
-            {apiData.kabupaten}
+            <b>API:</b> {apiData?.address}, {apiData?.kecamatan},{" "}
+            {apiData?.kabupaten}
           </div>
         </div>
         {/* ========================================================== */}
@@ -142,7 +252,7 @@ export default function StickyInfoBox({
             color: "#0056b3",
           }}
         >
-          <b>Kepala Sekolah:</b> {apiData.kepalaSekolah}
+          <b>Kepala Sekolah:</b> {apiData?.kepalaSekolah}
         </div>
         <div
           style={{
@@ -153,7 +263,7 @@ export default function StickyInfoBox({
           }}
         >
           <b>NIP:</b>{" "}
-          {ptkList?.find((p) => p.nama === apiData.kepalaSekolah)?.nip}
+          {ptkList?.find((p) => p.nama === apiData?.kepalaSekolah)?.nip}
         </div>
 
         {/* ================= PTK Search Box ================= */}
@@ -215,7 +325,6 @@ export default function StickyInfoBox({
                 <div style={{ fontSize: "11px", color: "#666" }}>
                   NIP: {ptk.nip || "-"}
                 </div>
-
               </div>
             ))}
             {!searchQuery && (
