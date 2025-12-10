@@ -12,7 +12,7 @@ const CutOffPage = () => {
         const res = await fetch("https://api.npoint.io/17f9cae69558688882bc");
         const data = await res.json();
         if (!data.isCutOff) {
-          router.push("/");
+          window.location.href = "/";
         }
       } catch (e) {
         // ignore, if npoint is down, we just stay on the cutoff page
