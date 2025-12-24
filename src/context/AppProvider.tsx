@@ -237,7 +237,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const newRows = allPendingRows.filter(
           (_, index) => index !== currentRowIndex,
         );
-        setAllPendingRows([...newRows, currentRow]);
+
+        if (isValidData) {
+          setAllPendingRows([...newRows, currentRow]);
+        } else {
+          setAllPendingRows(newRows);
+        }
+
         if (currentRowIndex >= newRows.length && newRows.length > 0) {
           setCurrentRowIndex(0);
         }
@@ -318,6 +324,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         if (dkmDataCache.has(rawNpsn)) {
           const data = dkmDataCache.get(rawNpsn)!;
+
+          if (!data.hisense.isGreen) {
+            handleSkip(false);
+            setIsFetchingDetails(false);
+            return;
+          }
+
           setDkmData(data);
           setEvaluationForm(defaultEvaluationValues);
           setCorrectSerialNumber(
@@ -627,7 +640,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (
       correctSerialNumberForUpdate &&
       correctSerialNumberForUpdate !==
-        dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
+      dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
     ) {
       updates["I"] = correctSerialNumberForUpdate;
     }
