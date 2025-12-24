@@ -7,6 +7,7 @@ import React, {
   useContext,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signIn } from "next-auth/react";
@@ -254,9 +255,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [allPendingRows, currentRowIndex],
   );
 
-  const [dkmDataCache, setDkmDataCache] = useState<Map<string, DkmData>>(
-    new Map(),
-  );
+  const dkmDataCache = useRef<Map<string, DkmData>>(new Map());
 
   const prefetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
@@ -267,7 +266,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         let rawNpsn = String(row.rowData[npsnCol]);
         if (!rawNpsn) return;
 
-        if (dkmDataCache.has(rawNpsn)) return;
+        if (dkmDataCache.current.has(rawNpsn)) return;
 
         const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
         const cookie = localStorage.getItem("hisense_cookie");
@@ -282,7 +281,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!response.ok) return;
 
         const data: DkmData = await response.json();
-        setDkmDataCache((prevCache) => new Map(prevCache).set(rawNpsn, data));
+        dkmDataCache.current.set(rawNpsn, data);
 
         if (data.hisense.images) {
           Object.values(data.hisense.images).forEach((imageUrl) => {
@@ -296,7 +295,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         console.error("Prefetch failed:", err);
       }
     },
-    [dkmDataCache],
+    [],
   );
 
   const fetchDetailsForRow = useCallback(
@@ -322,8 +321,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         let rawNpsn = String(row.rowData[npsnCol]);
         if (!rawNpsn) throw new Error("NPSN tidak ditemukan di baris ini.");
 
-        if (dkmDataCache.has(rawNpsn)) {
-          const data = dkmDataCache.get(rawNpsn)!;
+        if (dkmDataCache.current.has(rawNpsn)) {
+          const data = dkmDataCache.current.get(rawNpsn)!;
 
           if (!data.hisense.isGreen) {
             handleSkip(false);
@@ -375,7 +374,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         const data: DkmData = await response.json();
-        setDkmDataCache((prevCache) => new Map(prevCache).set(rawNpsn, data));
+        dkmDataCache.current.set(rawNpsn, data);
 
         if (!data.hisense.isGreen) {
           handleSkip(false);
@@ -402,7 +401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsFetchingDetails(false);
       }
     },
-    [handleSkip, dkmDataCache],
+    [handleSkip],
   );
 
   useEffect(() => {
