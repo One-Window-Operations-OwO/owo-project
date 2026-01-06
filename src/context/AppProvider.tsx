@@ -301,7 +301,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const fetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
       try {
-        const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a");
+        const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a", {
+          cache: 'no-store'
+        });
         const data = await res.json();
         if (data.isCutOff) {
           router.push("/cutoff");
@@ -416,7 +418,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setError(null);
       setAllPendingRows([]);
       try {
-        const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a");
+        const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a", {
+          cache: 'no-store'
+        });
         const data = await res.json();
         if (data.isCutOff) {
           router.push("/cutoff");
@@ -681,7 +685,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateSheetAndProceed = useCallback(
     async (action: "terima" | "tolak") => {
       try {
-        const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a");
+        const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a", {
+          cache: 'no-store'
+        });
         const data = await res.json();
         if (data.isCutOff) {
           router.push("/cutoff");
