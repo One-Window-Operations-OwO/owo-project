@@ -410,7 +410,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
       if (currentImageIndex === null) return;
 
       const active = document.activeElement;
-      if (e.key === "F") {
+      if (e.key === "x") {
         e.preventDefault();
         setCurrentImageIndex(null);
       }

@@ -10,7 +10,7 @@ import React, {
   useRef,
 } from "react";
 import { useRouter } from "next/navigation";
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { validateHisenseCookie } from "@/helpers/HisenseCookie";
 
 import LoginComponent from "@/components/LoginComponent";
@@ -153,6 +153,7 @@ interface AppContextType {
   error: string | null;
   isSubmitting: boolean;
   evaluationForm: Record<string, string>;
+  handleLogout: () => void;
   setEvaluationForm: React.Dispatch<
     React.SetStateAction<Record<string, string>>
   >;
@@ -682,6 +683,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem("hisense_cookie");
+    localStorage.removeItem("hisense_username");
+    localStorage.removeItem("hisense_password");
+    localStorage.removeItem("nama");
+    
+    localStorage.removeItem("draggable-position-sticky-info-box");
+    localStorage.removeItem("draggable-position-sticky-evaluation-box");
+
+    signOut();
+  }, []);
+
   const updateSheetAndProceed = useCallback(
     async (action: "terima" | "tolak") => {
       try {
@@ -862,6 +875,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         isLoading,
         isFetchingDetails,
         error,
+        handleLogout,
         isSubmitting,
         evaluationForm,
         setEvaluationForm,

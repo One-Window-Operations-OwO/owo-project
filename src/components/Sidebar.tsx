@@ -127,6 +127,7 @@ export default function Sidebar() {
     setEvaluationForm,
     customReason,
     setCustomReason,
+    handleLogout,
   } = useAppContext();
 
   const handleFormChange = (col: string, value: string) => {
