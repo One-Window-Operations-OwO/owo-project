@@ -257,52 +257,67 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const dkmDataCache = useRef<Map<string, DkmData>>(new Map());
 
-  const prefetchDetailsForRow = useCallback(
-    async (row: SheetRow) => {
+  const prefetchDetailsForRow = useCallback(async (row: SheetRow) => {
+    try {
+      const headerRow = row.headerRow;
+      if (!headerRow) return;
+      const npsnCol = headerRow.indexOf("NPSN");
+      let rawNpsn = String(row.rowData[npsnCol]);
+      if (!rawNpsn) return;
+
+      if (dkmDataCache.current.has(rawNpsn)) return;
+
+      const cookie = localStorage.getItem("hisense_cookie");
+      if (!cookie) return;
+
+      // Always use the NPSN that will be shown in the UI (from Hisense schoolInfo["NPSN"])
+      // First, fetch Hisense to get the correct NPSN
+      let npsnToUse = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
+      let hisenseNpsn = npsnToUse;
       try {
-        const headerRow = row.headerRow;
-        if (!headerRow) return;
-        const npsnCol = headerRow.indexOf("NPSN");
-        let rawNpsn = String(row.rowData[npsnCol]);
-        if (!rawNpsn) return;
-
-        if (dkmDataCache.current.has(rawNpsn)) return;
-
-        const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
-        const cookie = localStorage.getItem("hisense_cookie");
-        if (!cookie) return;
-
-        const response = await fetch("/api/combined", {
+        const hisenseRes = await fetch("/api/combined", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
+          body: JSON.stringify({ q_raw: rawNpsn, q: npsnToUse, cookie }),
         });
-
-        if (!response.ok) return;
-
-        const data: DkmData = await response.json();
-        dkmDataCache.current.set(rawNpsn, data);
-
-        if (data.hisense.images) {
-          Object.values(data.hisense.images).forEach((imageUrl) => {
-            if (typeof imageUrl === "string" && imageUrl) {
-              const img = new Image();
-              img.src = imageUrl;
-            }
-          });
+        if (hisenseRes.ok) {
+          const hisenseData = await hisenseRes.json();
+          if (hisenseData?.hisense?.schoolInfo?.NPSN) {
+            hisenseNpsn = hisenseData.hisense.schoolInfo.NPSN;
+          }
         }
-      } catch (err) {
-        console.error("Prefetch failed:", err);
+      } catch {}
+
+      // Now fetch Datadik using the NPSN that will be shown in the UI
+      const response = await fetch("/api/combined", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q_raw: hisenseNpsn, q: hisenseNpsn, cookie }),
+      });
+
+      if (!response.ok) return;
+
+      const data: DkmData = await response.json();
+      dkmDataCache.current.set(hisenseNpsn, data);
+
+      if (data.hisense.images) {
+        Object.values(data.hisense.images).forEach((imageUrl) => {
+          if (typeof imageUrl === "string" && imageUrl) {
+            const img = new Image();
+            img.src = imageUrl;
+          }
+        });
       }
-    },
-    [],
-  );
+    } catch (err) {
+      console.error("Prefetch failed:", err);
+    }
+  }, []);
 
   const fetchDetailsForRow = useCallback(
     async (row: SheetRow) => {
       try {
         const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a", {
-          cache: 'no-store'
+          cache: "no-store",
         });
         const data = await res.json();
         if (data.isCutOff) {
@@ -419,7 +434,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAllPendingRows([]);
       try {
         const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a", {
-          cache: 'no-store'
+          cache: "no-store",
         });
         const data = await res.json();
         if (data.isCutOff) {
@@ -524,7 +539,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "BAPP Tidak Jelas": "(1M) BAPP halaman 1 tidak terlihat jelas",
         "Surat Tugas Tidak Ada":
           "(1V) Nomor surat tugas pada halaman 1 tidak ada",
-        "Diedit": "(1Y) BAPP halaman 1 tidak boleh diedit digital",
+        Diedit: "(1Y) BAPP halaman 1 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
       },
       S: {
@@ -543,7 +558,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       U: {
         "Tidak Sesuai": "(1Q) Ceklis BAPP tidak sesuai pada halaman 2",
         "BAPP Tidak Jelas": "(1T) BAPP halaman 2 tidak terlihat jelas",
-        "Diedit": "(1Z) BAPP halaman 2 tidak boleh diedit digital",
+        Diedit: "(1Z) BAPP halaman 2 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
         "Tanggal Tidak Konsisten":
           "(1E) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
@@ -643,7 +658,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (
       correctSerialNumberForUpdate &&
       correctSerialNumberForUpdate !==
-      dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
+        dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
     ) {
       updates["I"] = correctSerialNumberForUpdate;
     }
@@ -686,7 +701,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     async (action: "terima" | "tolak") => {
       try {
         const res = await fetch("https://api.npoint.io/aaa5f14d323a7a02bb9a", {
-          cache: 'no-store'
+          cache: "no-store",
         });
         const data = await res.json();
         if (data.isCutOff) {

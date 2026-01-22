@@ -1,54 +1,42 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
-async function getDatadik(q: string) {
-  const apiHeader = {
-    "Content-Type": "application/x-www-form-urlencoded",
-    cookie: process.env.DATADIK_COOKIE || "",
-  };
-  const res1 = await fetch(
-    "https://datadik.kemendikdasmen.go.id/refsp/q/173F3996-ED37-4D49-8487-534D0CE53421",
-    {
-      method: "POST",
-      headers: apiHeader,
-      body: "q=" + encodeURIComponent(q || ""),
-    }
-  );
+// Datadik via new service, follows NPSN (iin) and returns new shape
+async function getDatadik(npsn: string) {
+  if (!npsn) return null;
+  const url = `https://jkt-dc01.taila6748c.ts.net/fetch-school-data?npsn=${encodeURIComponent(
+    npsn || ""
+  )}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { accept: "application/json" },
+    body: "",
+  });
 
-  const data = await res1.json();
-  if (data.length === 0) {
-    return null;
-  }
-  const id = data[0][0];
-  const name = data[0][1];
-  const address = data[0][3];
-  const kecamatan = data[0][4];
-  const kabupaten = data[0][5];
-  const provinsi = data[0][6];
-
-  const res2 = await fetch(
-    "https://datadik.kemendikdasmen.go.id/ma74/sekolahptk/" + id + "/1",
-    { headers: apiHeader }
-  );
-  const ptk = await res2.json();
-
-  let kepalaSekolah = "";
-  for (const person of ptk) {
-    if (person.jabatan_ptk === "Kepala Sekolah") {
-      kepalaSekolah = person.nama;
-    }
+  if (!res.ok) {
+    throw new Error(`Datadik fetch failed: ${res.status}`);
   }
 
-  return {
-    id,
-    name,
-    address,
-    kecamatan,
-    kabupaten,
-    provinsi,
-    kepalaSekolah,
-    ptk,
-  };
+  // Returns shape: { npsn, namaSekolah, namaKepsek, noHpKepsek, guruLain: [...], ptkIdKepsek }
+  const data = await res.json();
+
+  // Ensure namaKepsek is in guruLain
+  if (data && data.namaKepsek) {
+    const alreadyInList = Array.isArray(data.guruLain)
+      ? data.guruLain.some((g: any) =>
+          (g.nama || "").trim().toLowerCase() === data.namaKepsek.trim().toLowerCase()
+        )
+      : false;
+    if (!alreadyInList) {
+      if (!Array.isArray(data.guruLain)) data.guruLain = [];
+      data.guruLain.unshift({
+        nama: data.namaKepsek,
+        ptk_id: data.ptkIdKepsek || undefined,
+        jabatan: "Kepala Sekolah",
+      });
+    }
+  }
+  return data;
 }
 
 const hisenseUrl = "https://kemendikdasmen.hisense.id/";
@@ -167,21 +155,30 @@ async function getHisense(npsn: string, cookie: string) {
 export async function POST(req: Request) {
   try {
     const { q_raw, q, cookie } = await req.json();
+    // Fetch Hisense, but don't fail overall response if it errors
+    let hisense: any = null;
+    let hisenseError: string | null = null;
+    try {
+      hisense = await getHisense(q_raw, cookie);
+    } catch (e: any) {
+      hisenseError = e?.message || "Failed to fetch Hisense";
+    }
 
-    const [datadik, hisense] = await Promise.allSettled([
-      getDatadik(q),
-      getHisense(q_raw, cookie),
-    ]);
+    // Determine NPSN to follow for Datadik
+    const npsnCandidate =
+      (hisense && (hisense.npsn || hisense.iins)) || q || "";
+
+    let datadik: any = null;
+    let datadikError: string | null = null;
+    try {
+      datadik = await getDatadik(npsnCandidate);
+    } catch (e: any) {
+      datadikError = e?.message || "Failed to fetch Datadik";
+    }
 
     return NextResponse.json({
-      datadik:
-        datadik.status === "fulfilled"
-          ? datadik.value
-          : { error: datadik.reason.message },
-      hisense:
-        hisense.status === "fulfilled"
-          ? hisense.value
-          : { error: hisense.reason.message },
+      datadik: datadikError ? { error: datadikError } : datadik,
+      hisense: hisenseError ? { error: hisenseError } : hisense,
     });
   } catch (err: unknown) {
     const errorMessage =

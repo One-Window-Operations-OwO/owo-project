@@ -139,7 +139,7 @@ function AIResultBox({
       {"similarity" in result && result.similarity !== undefined && (
         <div
           className={`px-3 py-1 rounded-md text-sm font-semibold inline-block mb-3 border ${getSimColor(
-            result.similarity
+            result.similarity,
           )}`}
         >
           Similarity: {result.similarity}%
@@ -190,10 +190,10 @@ function AIResultBox({
 
 export default function DkmDetails({ data }: { data: DkmData }) {
   const [aiResultBapp1, setAiResultBapp1] = useState<AIBapp1Result | null>(
-    null
+    null,
   );
   const [aiResultBapp2, setAiResultBapp2] = useState<AIBapp2Result | null>(
-    null
+    null,
   );
 
   const { setEvaluationForm, setCorrectSerialNumber } = useAppContext();
@@ -205,29 +205,43 @@ export default function DkmDetails({ data }: { data: DkmData }) {
 
   const [mismatches, setMismatches] = useState<Record<string, boolean>>({});
   const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(
-    null
+    null,
   );
 
   const [imageRotation, setImageRotation] = useState(0);
   const [aiResultPlang, setAiResultPlang] = useState<AIPlangResult | null>(
-    null
+    null,
   );
   const [aiResultSN, setAiResultSN] = useState<AISNResult | null>(null);
 
   const prosesRef = useRef<HTMLDivElement>(null);
 
   const datadik = useMemo(() => data.datadik || {}, [data.datadik]);
-  const ptkList = useMemo(() => datadik.ptk || [], [datadik.ptk]);
+  // Guru list state: clear on data change, fill after fetch
+  const [ptkList, setPtkList] = useState<any[]>([]);
+  useEffect(() => {
+    setPtkList([]); // Clear immediately on data change
+    const list = (datadik as any)?.guruLain || [];
+    if (Array.isArray(list)) {
+      setPtkList(
+        list.map((g: any) => ({
+          nama: g?.nama,
+          jabatan_ptk: g?.jabatan,
+          ptk_id: g?.ptk_id,
+        })),
+      );
+    }
+  }, [datadik]);
   const hisense = useMemo(() => data.hisense || {}, [data.hisense]);
   const schoolInfo = useMemo(
     () => (hisense as HisenseData).schoolInfo || {},
-    [hisense]
+    [hisense],
   );
 
   const images = (hisense as HisenseData).images || {};
   const processHistory = useMemo(
     () => (hisense as HisenseData).processHistory || [],
-    [hisense]
+    [hisense],
   );
   const note = useMemo(() => (hisense as HisenseData).note || {}, [hisense]);
   const imageList = useMemo(() => Object.values(images), [images]);
@@ -272,7 +286,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
 
       if (e.button === 3) {
         setCurrentImageIndex(
-          (prev) => (prev! - 1 + imageList.length) % imageList.length
+          (prev) => (prev! - 1 + imageList.length) % imageList.length,
         );
       }
 
@@ -300,11 +314,11 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     if (!schoolInfo || !datadik) return;
 
     const m: Record<string, boolean> = {
-      Nama: !cleanAndCompare(schoolInfo.Nama, datadik.name),
-      Alamat: !cleanAndCompare(schoolInfo.Alamat, datadik.address),
-      Kecamatan: !cleanAndCompare(schoolInfo.Kecamatan, datadik.kecamatan),
-      Kabupaten: !cleanAndCompare(schoolInfo.Kabupaten, datadik.kabupaten),
-      PIC: !cleanAndCompare(schoolInfo.PIC, datadik.kepalaSekolah),
+      Nama: !cleanAndCompare(schoolInfo.Nama, (datadik as any)?.namaSekolah),
+      Alamat: false,
+      Kecamatan: false,
+      Kabupaten: false,
+      PIC: !cleanAndCompare(schoolInfo.PIC, (datadik as any)?.namaKepsek),
     };
 
     setMismatches(m);
@@ -342,7 +356,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
           })
             .then((r) => r.json())
             .then((d) => setAiResultPlang(d))
-            .catch(() => {})
+            .catch(() => {}),
         );
       }
 
@@ -359,7 +373,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
           })
             .then((r) => r.json())
             .then((d) => setAiResultSN(d))
-            .catch(() => {})
+            .catch(() => {}),
         );
       }
       // BAPP HAL 1 (index 6)
@@ -377,7 +391,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
           })
             .then((r) => r.json())
             .then((d) => setAiResultBapp1(d))
-            .catch(() => {})
+            .catch(() => {}),
         );
       }
 
@@ -395,7 +409,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
           })
             .then((r) => r.json())
             .then((d) => setAiResultBapp2(d))
-            .catch(() => {})
+            .catch(() => {}),
         );
       }
 
@@ -423,7 +437,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
         setCurrentImageIndex((p) => (p! + 1) % imageList.length);
       if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a")
         setCurrentImageIndex(
-          (p) => (p! - 1 + imageList.length) % imageList.length
+          (p) => (p! - 1 + imageList.length) % imageList.length,
         );
       if (e.key.toLowerCase() === "q")
         setImageRotation((p) => (p - 90 + 360) % 360);
@@ -518,7 +532,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
 
   const rotateImage = (dir: "left" | "right") =>
     setImageRotation((p) =>
-      dir === "right" ? (p + 90) % 360 : (p - 90 + 360) % 360
+      dir === "right" ? (p + 90) % 360 : (p - 90 + 360) % 360,
     );
 
   return (
@@ -527,13 +541,15 @@ export default function DkmDetails({ data }: { data: DkmData }) {
         <>
           <StickyInfoBox
             formData={schoolInfo}
-            apiData={{
-              address: datadik.address || "",
-              kecamatan: datadik.kecamatan || "",
-              kabupaten: datadik.kabupaten || "",
-              kepalaSekolah: datadik.kepalaSekolah || "",
-              name: datadik.name || "",
-            }}
+            apiData={
+              {
+                address: "",
+                kecamatan: "",
+                kabupaten: "",
+                kepalaSekolah: (datadik as any)?.namaKepsek || "",
+                name: (datadik as any)?.namaSekolah || "",
+              } as any
+            }
             ptkList={ptkList}
           />
 
@@ -857,7 +873,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
             onClick={(e) => {
               e.stopPropagation();
               setCurrentImageIndex(
-                (prev) => (prev! - 1 + imageList.length) % imageList.length
+                (prev) => (prev! - 1 + imageList.length) % imageList.length,
               );
             }}
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white text-5xl hover:opacity-75 transition-opacity"

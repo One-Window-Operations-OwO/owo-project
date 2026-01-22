@@ -64,8 +64,23 @@ export default function StickyInfoBox({
       const data = await response.json();
 
       if (data.datadik) {
-        setApiData(data.datadik);
-        setPtkList(data.datadik.ptk);
+        // Adapt new Datadik shape to local expected fields
+        const dd = data.datadik;
+        setApiData({
+          address: "",
+          kecamatan: "",
+          kabupaten: "",
+          kepalaSekolah: dd?.namaKepsek || "",
+          name: dd?.namaSekolah || "",
+        } as any);
+
+        const guruLain = Array.isArray(dd?.guruLain) ? dd.guruLain : [];
+        const mapped = guruLain.map((g: any) => ({
+          nama: g?.nama,
+          jabatan_ptk: g?.jabatan,
+          ptk_id: g?.ptk_id,
+        }));
+        setPtkList(mapped);
       }
     } catch (error: any) {
       // Error handling is already happening implicitly by not updating state
@@ -235,8 +250,8 @@ export default function StickyInfoBox({
             Alamat (Form & API)
           </div>
           <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
-            <b>Form:</b> {initialFormData?.Alamat}, {initialFormData?.Kecamatan},{" "}
-            {initialFormData?.Kabupaten}
+            <b>Form:</b> {initialFormData?.Alamat}, {initialFormData?.Kecamatan}
+            , {initialFormData?.Kabupaten}
           </div>
           <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
             <b>API:</b> {apiData?.address}, {apiData?.kecamatan},{" "}
