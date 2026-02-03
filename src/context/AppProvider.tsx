@@ -272,35 +272,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const cookie = localStorage.getItem("hisense_cookie");
       if (!cookie) return;
 
-      // Always use the NPSN that will be shown in the UI (from Hisense schoolInfo["NPSN"])
-      // First, fetch Hisense to get the correct NPSN
-      let npsnToUse = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
-      let hisenseNpsn = npsnToUse;
-      try {
-        const hisenseRes = await fetch("/api/combined", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ q_raw: rawNpsn, q: npsnToUse, cookie }),
-        });
-        if (hisenseRes.ok) {
-          const hisenseData = await hisenseRes.json();
-          if (hisenseData?.hisense?.schoolInfo?.NPSN) {
-            hisenseNpsn = hisenseData.hisense.schoolInfo.NPSN;
-          }
-        }
-      } catch {}
+      const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
 
-      // Now fetch Datadik using the NPSN that will be shown in the UI
       const response = await fetch("/api/combined", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q_raw: hisenseNpsn, q: hisenseNpsn, cookie }),
+        body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
       });
 
       if (!response.ok) return;
 
       const data: DkmData = await response.json();
-      dkmDataCache.current.set(hisenseNpsn, data);
+      
+      // Cache with the same key used by fetchDetailsForRow
+      dkmDataCache.current.set(rawNpsn, data);
 
       if (data.hisense.images) {
         Object.values(data.hisense.images).forEach((imageUrl) => {
@@ -469,6 +454,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const filtered = allData
           .slice(3)
+          .reverse()
           .filter(
             (item: SheetRow) =>
               item.rowData[verifikatorCol] === verifierName &&
