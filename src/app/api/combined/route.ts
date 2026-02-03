@@ -9,8 +9,11 @@ async function getDatadik(npsn: string) {
   )}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { accept: "application/json" },
-    body: "",
+    headers: {
+      accept: "application/json",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    },
   });
 
   if (!res.ok) {
@@ -24,8 +27,8 @@ async function getDatadik(npsn: string) {
   if (data && data.namaKepsek) {
     const alreadyInList = Array.isArray(data.guruLain)
       ? data.guruLain.some((g: any) =>
-          (g.nama || "").trim().toLowerCase() === data.namaKepsek.trim().toLowerCase()
-        )
+        (g.nama || "").trim().toLowerCase() === data.namaKepsek.trim().toLowerCase()
+      )
       : false;
     if (!alreadyInList) {
       if (!Array.isArray(data.guruLain)) data.guruLain = [];

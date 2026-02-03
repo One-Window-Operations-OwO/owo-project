@@ -247,16 +247,16 @@ export default function StickyInfoBox({
               marginBottom: "4px",
             }}
           >
-            Alamat (Form & API)
+            Alamat
           </div>
           <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
             <b>Form:</b> {initialFormData?.Alamat}, {initialFormData?.Kecamatan}
             , {initialFormData?.Kabupaten}
           </div>
-          <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
+          {/* <div style={{ fontSize: "12px", color: "#333", lineHeight: "1.4" }}>
             <b>API:</b> {apiData?.address}, {apiData?.kecamatan},{" "}
             {apiData?.kabupaten}
-          </div>
+          </div> */}
         </div>
         {/* ========================================================== */}
         <div
