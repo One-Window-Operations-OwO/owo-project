@@ -196,7 +196,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
     null,
   );
 
-  const { setEvaluationForm, setCorrectSerialNumber } = useAppContext();
+  const { setEvaluationForm, setCorrectSerialNumber, refreshCurrentData } = useAppContext();
   const { installationDate, setInstallationDate } = useAppContext();
   const aiHasRun = useRef(false);
 
@@ -551,6 +551,7 @@ export default function DkmDetails({ data }: { data: DkmData }) {
               } as any
             }
             ptkList={ptkList}
+            onRefetchDatadik={refreshCurrentData}
           />
 
           <StickyEvaluationBox currentImageIndex={currentImageIndex} />

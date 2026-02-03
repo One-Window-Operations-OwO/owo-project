@@ -168,6 +168,7 @@ interface AppContextType {
   setCorrectSerialNumber: React.Dispatch<React.SetStateAction<string>>;
   installationDate: string;
   setInstallationDate: React.Dispatch<React.SetStateAction<string>>;
+  refreshCurrentData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -905,6 +906,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCorrectSerialNumber,
         installationDate,
         setInstallationDate,
+        refreshCurrentData: async () => {
+          if (allPendingRows.length > 0) {
+            await fetchDetailsForRow(allPendingRows[currentRowIndex]);
+          }
+        },
       }}
     >
       <div className="flex h-screen bg-gray-200">
