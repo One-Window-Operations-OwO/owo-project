@@ -10,6 +10,7 @@ interface StickyInfoBoxProps {
   formData: DkmData["hisense"]["schoolInfo"];
   apiData: DkmData["datadik"];
   ptkList: DkmData["datadik"]["ptk"];
+  onRefetchDatadik?: () => void;
 }
 
 const cleanAndCompare = (val1?: string, val2?: string) => {
@@ -21,6 +22,7 @@ export default function StickyInfoBox({
   formData: initialFormData,
   apiData: initialApiData,
   ptkList: initialPtkList,
+  onRefetchDatadik,
 }: StickyInfoBoxProps) {
   const boxRef = useRef<HTMLDivElement>(null!);
   const { position, handleMouseDown } = useDraggable<HTMLDivElement>(
@@ -39,59 +41,10 @@ export default function StickyInfoBox({
   }, [initialApiData, initialPtkList]);
 
   const handleRefresh = async () => {
-    if (!initialFormData?.NPSN) return;
-    setIsRefreshing(true);
-
-    try {
-      const rawNpsn = initialFormData.NPSN;
-      const npsn = rawNpsn.includes("_") ? rawNpsn.split("_")[0] : rawNpsn;
-      const cookie = localStorage.getItem("hisense_cookie");
-
-      if (!cookie) {
-        throw new Error("Cookie Hisense tidak ditemukan.");
-      }
-
-      const response = await fetch("/api/combined", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q_raw: rawNpsn, q: npsn, cookie }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Gagal mengambil data. Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.datadik) {
-        // Adapt new Datadik shape to local expected fields
-        const dd = data.datadik;
-        setApiData({
-          address: "",
-          kecamatan: "",
-          kabupaten: "",
-          kepalaSekolah: dd?.namaKepsek || "",
-          name: dd?.namaSekolah || "",
-        } as any);
-
-        const guruLain = Array.isArray(dd?.guruLain) ? dd.guruLain : [];
-        const mapped = guruLain.map((g: any) => ({
-          nama: g?.nama,
-          jabatan_ptk: g?.jabatan,
-          ptk_id: g?.ptk_id,
-        }));
-        setPtkList(mapped);
-      }
-    } catch (error: any) {
-      // Error handling is already happening implicitly by not updating state
-    } finally {
+    if (onRefetchDatadik) {
+      setIsRefreshing(true);
+      await onRefetchDatadik();
       setIsRefreshing(false);
-      // Send a minimal log trigger to the server
-      await fetch("/api/refresh", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "triggered" }),
-      });
     }
   };
 
@@ -200,7 +153,7 @@ export default function StickyInfoBox({
         <button
           onClick={handleRefresh}
           disabled={isRefreshing}
-          title="Klik F bro"
+          title="Refresh Datadik"
           style={{
             padding: "4px 8px",
             fontSize: "12px",
@@ -268,6 +221,7 @@ export default function StickyInfoBox({
           }}
         >
           <b>Kepala Sekolah:</b> {apiData?.kepalaSekolah}
+
         </div>
         <div
           style={{
