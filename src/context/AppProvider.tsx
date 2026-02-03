@@ -454,7 +454,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const filtered = allData
           .slice(3)
-          .reverse()
           .filter(
             (item: SheetRow) =>
               item.rowData[verifikatorCol] === verifierName &&
