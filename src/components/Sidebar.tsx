@@ -28,15 +28,17 @@ export const evaluationFields: EvaluationField[] = [
   { col: "J", label: "GEO TAGGING", options: ["Sesuai", "Tidak Sesuai"] },
   { col: "K", label: "FOTO PAPAN NAMA", options: ["Sesuai", "Tidak Sesuai"] },
   { col: "L", label: "FOTO BOX & PIC", options: ["Sesuai", "Tidak Sesuai"] },
-  {
-    col: "M",
-    label: "FOTO KELENGKAPAN UNIT",
-    options: ["Sesuai", "Tidak Sesuai"],
-  },
+  { col: "M", label: "FOTO KELENGKAPAN UNIT", options: ["Sesuai", "Tidak Sesuai"], },
   {
     col: "N",
     label: "FOTO SERIAL NUMBER",
-    options: ["Sesuai", "Tidak Sesuai", "Tidak Ada", "Tidak Terlihat", "Diedit"],
+    options: [
+      "Sesuai",
+      "Tidak Sesuai",
+      "Tidak Ada",
+      "Tidak Terlihat",
+      "Diedit"
+    ],
   },
   { col: "P", label: "BARCODE BAPP", options: ["Sesuai", "Tidak Sesuai"] },
   {
@@ -45,11 +47,10 @@ export const evaluationFields: EvaluationField[] = [
     options: [
       "Lengkap",
       "Tidak Lengkap",
+      "Double Ceklis",
       "Tidak Sesuai",
       "BAPP Tidak Jelas",
-      "Surat Tugas Tidak Ada",
-      "Diedit", 
-      "Tanggal Tidak Ada"
+      "Diedit",
     ],
   },
   {
@@ -57,17 +58,18 @@ export const evaluationFields: EvaluationField[] = [
     label: "NAMA PENANDATANGANAN BAPP",
     options: [
       "Konsisten",
-      "Tidak Konsisten",
       "Tidak Terdaftar di Datadik",
-      "PIC Tidak Sama",
       "TTD Tidak Ada",
-      "NIP Tidak Ada"
     ],
   },
   {
     col: "T",
     label: "STEMPEL",
-    options: ["Sesuai", "Tidak Sesuai", "Tidak Ada", "Tidak Sesuai Tempatnya"],
+    options: [
+      "Sesuai",
+      "Tidak Sesuai",
+      "Tidak Ada",
+    ],
   },
   {
     col: "U",
@@ -75,14 +77,25 @@ export const evaluationFields: EvaluationField[] = [
     options: [
       "Lengkap",
       "Tidak Lengkap",
+      "Double Ceklis",
       "Tidak Sesuai",
       "BAPP Tidak Jelas",
       "Diedit",
       "Tanggal Tidak Ada",
-      "Tanggal Tidak Konsisten"
+      "Tanggal Tidak Konsisten",
+      "Tidak Ada Listrik",
+      "Tidak Ada Internet",
     ],
   },
-  { col: "V", label: "PESERTA PELATIHAN", options: ["Ada", "Tidak Ada", "Media Pelatihan"] },
+  {
+    col: "V",
+    label: "PESERTA PELATIHAN",
+    options: [
+      "Ada",
+      "Tidak Ada",
+      "Media Pelatihan"
+    ]
+  },
   { col: "W", label: "KESIMPULAN LENGKAP", options: ["Ya", "Tidak"] },
 ];
 
@@ -106,10 +119,9 @@ export const RadioOption = ({
     onClick={() => onChange(field.col, option)}
     disabled={disabled}
     className={`px-3 py-1 text-xs rounded-full border transition-colors disabled:opacity-50
-      ${
-        checked
-          ? "bg-blue-500 border-blue-500 text-white font-semibold"
-          : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500"
+      ${checked
+        ? "bg-blue-500 border-blue-500 text-white font-semibold"
+        : "bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600 hover:border-gray-500"
       }`}
   >
     {option}
@@ -194,18 +206,16 @@ export default function Sidebar() {
           <button
             onClick={() => handleSkip(true)}
             disabled={buttonsDisabled}
-            className={`flex-1 p-3 bg-gray-500 rounded-md text-white font-bold hover:bg-gray-400 disabled:opacity-50 transition-colors ${
-              isSubmitting ? "animate-pulse" : ""
-            }`}
+            className={`flex-1 p-3 bg-gray-500 rounded-md text-white font-bold hover:bg-gray-400 disabled:opacity-50 transition-colors ${isSubmitting ? "animate-pulse" : ""
+              }`}
           >
             {isSubmitting ? <Spinner /> : "SKIP"}
           </button>
           <button
             onClick={mainButtonAction}
             disabled={mainButtonDisabled}
-            className={`flex-1 p-3 rounded-md text-white font-bold disabled:opacity-50 transition-colors ${mainButtonColor} ${
-              isSubmitting ? "animate-pulse" : ""
-            }`}
+            className={`flex-1 p-3 rounded-md text-white font-bold disabled:opacity-50 transition-colors ${mainButtonColor} ${isSubmitting ? "animate-pulse" : ""
+              }`}
           >
             {isSubmitting ? <Spinner /> : mainButtonLabel}
           </button>

@@ -283,7 +283,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (!response.ok) return;
 
       const data: DkmData = await response.json();
-      
+
       // Cache with the same key used by fetchDetailsForRow
       dkmDataCache.current.set(rawNpsn, data);
 
@@ -454,7 +454,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         const filtered = allData
           .slice(3)
-          .reverse()
           .filter(
             (item: SheetRow) =>
               item.rowData[verifikatorCol] === verifierName &&
@@ -508,52 +507,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
       N: "(3B) Serial number yang diinput tidak sesuai dengan yang tertera pada IFP",
       P: "(1L) Data BAPP sekolah tidak sesuai (cek barcode atas dan NPSN dengan foto sekolah atau NPSN yang diinput)",
       Q: "(1D) Ceklis BAPP tidak lengkap pada halaman 1",
-      S: "(1K) Data penanda tangan pada halaman 1 dan halaman 2 BAPP tidak konsisten",
+      S: "(1C) Pihak sekolah yang menandatangani BAPP tidak terdaftar dalam data Dapodik",
       T: "(1O) Stempel pada BAPP halaman 2 tidak sesuai dengan sekolahnya",
-      U: "(1Q) Ceklis BAPP tidak lengkap pada halaman 2",
-      V: "(1S) Satuan pendidikan yang mengikuti pelatihan, tidak ada dalam BAPP hal.2",
+      U: "(1E) Ceklis BAPP tidak lengkap pada halaman 2",
+      V: "(1S) Satuan pendidikan yang mengikuti pelatihan, tidak ada dalam BAPP hal 2",
       W: "(1A) Simpulan BAPP pada hal 2 belum dipilih atau dicoret",
     };
 
     const specificReasons: { [key: string]: { [key: string]: string } } = {
       N: {
-        "Tidak Terlihat":
-          "(3A) Foto serial number pada belakang unit IFP tidak jelas",
+        "Tidak Terlihat": "(3A) Foto serial number pada belakang unit IFP tidak jelas",
         "Tidak Ada": "(3C) Foto serial number pada belakang unit IFP tidak ada",
-        Diedit: "(1AB) Foto serial number tidak boleh diedit digital",
+        "Diedit": "(3D) Foto serial number tidak boleh diedit digital",
       },
       Q: {
+        "Double Ceklis": "(1I) Terdapat double ceklis pada halaman 1 BAPP",
         "Tidak Sesuai": "(1D) Ceklis BAPP tidak sesuai pada halaman 1",
         "BAPP Tidak Jelas": "(1M) BAPP halaman 1 tidak terlihat jelas",
-        "Surat Tugas Tidak Ada":
-          "(1V) Nomor surat tugas pada halaman 1 tidak ada",
-        Diedit: "(1Y) BAPP halaman 1 tidak boleh diedit digital",
-        "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
+        "Diedit": "(1Y) BAPP halaman 1 tidak boleh diedit digital",
       },
       S: {
-        "Tidak Terdaftar di Datadik":
-          "(1C) Pihak sekolah yang menandatangani BAPP tidak terdaftar dalam data Dapodik",
-        "PIC Tidak Sama":
-          "(1U) PIC dari pihak sekolah berbeda dengan yang di BAPP",
+        "Tidak Terdaftar di Datadik": "(1C) Pihak sekolah yang menandatangani BAPP tidak terdaftar dalam data Dapodik",
         "TTD Tidak Ada": "(1X) Tidak ada tanda tangan dari pihak sekolah",
-        "NIP Tidak Ada": "(1AA) NIP penandatangan pihak sekolah tidak ada",
       },
       T: {
         "Tidak Ada": "(1B) Tidak ada stempel sekolah pada BAPP",
-        "Tidak Sesuai Tempatnya":
-          "(1W) Stempel tidak mengenai tanda tangan pihak sekolah",
       },
       U: {
+        "Double Ceklis": "(1J) Terdapat double ceklis pada halaman 2 BAPP",
         "Tidak Sesuai": "(1Q) Ceklis BAPP tidak sesuai pada halaman 2",
         "BAPP Tidak Jelas": "(1T) BAPP halaman 2 tidak terlihat jelas",
-        Diedit: "(1Z) BAPP halaman 2 tidak boleh diedit digital",
+        "Diedit": "(1Z) BAPP halaman 2 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
-        "Tanggal Tidak Konsisten":
-          "(1E) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
+        "Tanggal Tidak Konsisten": "(1P) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
+        "Tidak Ada Listrik": "(1AD) Dokumentasi IFP tidak menyala namun bagian pengerjaan dan uji fungsi diceklis",
+        "Tidak Ada Internet": "(1AE) Jaringan internet tidak ada namun bagian konektivitas WIFI diceklis",
       },
       V: {
         "Media Pelatihan":
-          "(1AC) Harap ceklis di luar jaringan pada media pelatihan (jangan double ceklis/tidak ceklis)",
+          "(1AC) Tidak ada ceklis luar jaringan pada media pelatihan",
       },
     };
 
@@ -646,7 +638,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (
       correctSerialNumberForUpdate &&
       correctSerialNumberForUpdate !==
-        dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
+      dkmDataForUpdate.hisense.schoolInfo?.["Serial Number"]
     ) {
       updates["I"] = correctSerialNumberForUpdate;
     }
@@ -690,7 +682,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("hisense_username");
     localStorage.removeItem("hisense_password");
     localStorage.removeItem("nama");
-    
+
     localStorage.removeItem("draggable-position-sticky-info-box");
     localStorage.removeItem("draggable-position-sticky-evaluation-box");
 
