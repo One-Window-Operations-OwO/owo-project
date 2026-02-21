@@ -540,7 +540,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         "Diedit": "(1Z) BAPP halaman 2 tidak boleh diedit digital",
         "Tanggal Tidak Ada": "(1F) Tanggal BAPP tidak diisi",
         "Tanggal Tidak Konsisten": "(1P) Tanggal pada halaman 2 tidak sesuai dengan halaman 1",
-        "Tidak Ada Listrik": "(1AD) Dokumentasi IFP tidak menyala namun bagian pengerjaan dan uji fungsi diceklis",
+        "Tidak Ada Listrik": "(1AD) Dokumentasi IFP tidak menyala namun bagian pengerjaan dan uji fungsi serta pelatihan diceklis",
         "Tidak Ada Internet": "(1AE) Jaringan internet tidak ada namun bagian konektivitas WIFI diceklis",
       },
       V: {
